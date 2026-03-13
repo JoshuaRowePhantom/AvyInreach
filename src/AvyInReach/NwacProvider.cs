@@ -81,8 +81,7 @@ internal sealed partial class NwacProvider(HttpClient httpClient, IProcessRunner
 
     public async Task<AvalancheForecast?> GetForecastAsync(ForecastRegion region, CancellationToken cancellationToken)
     {
-        var forecasts = await GetForecastsAsync(cancellationToken);
-        var match = forecasts.Objects.FirstOrDefault(item => MatchesRegion(item, region));
+        var match = await FindForecastAsync(region, cancellationToken);
         if (match is null)
         {
             return null;
@@ -119,9 +118,28 @@ internal sealed partial class NwacProvider(HttpClient httpClient, IProcessRunner
                 match.OptionalDiscussion));
     }
 
-    private async Task<ForecastCollection> GetForecastsAsync(CancellationToken cancellationToken)
+    private async Task<ForecastItem?> FindForecastAsync(ForecastRegion region, CancellationToken cancellationToken)
     {
-        using var response = await httpClient.GetAsync(ForecastsUrl, cancellationToken);
+        const int pageSize = 100;
+        for (var offset = 0; ; offset += pageSize)
+        {
+            var forecasts = await GetForecastsAsync(pageSize, offset, cancellationToken);
+            var match = forecasts.Objects.FirstOrDefault(item => MatchesRegion(item, region));
+            if (match is not null)
+            {
+                return match;
+            }
+
+            if (forecasts.Meta?.Next is null || forecasts.Objects.Count == 0)
+            {
+                return null;
+            }
+        }
+    }
+
+    private async Task<ForecastCollection> GetForecastsAsync(int limit, int offset, CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.GetAsync($"{ForecastsUrl}?limit={limit}&offset={offset}", cancellationToken);
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -466,7 +484,14 @@ internal sealed partial class NwacProvider(HttpClient httpClient, IProcessRunner
 
     private sealed class ForecastCollection
     {
+        public ForecastMeta? Meta { get; init; }
+
         public IReadOnlyList<ForecastItem> Objects { get; init; } = [];
+    }
+
+    private sealed class ForecastMeta
+    {
+        public string? Next { get; init; }
     }
 
     private sealed class ForecastItem

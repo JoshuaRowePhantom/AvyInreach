@@ -52,6 +52,19 @@ public sealed class NwacProviderTests
         Assert.Equal("N-E-SE", forecast.Problems[0].AspectString());
     }
 
+    [Fact]
+    public async Task GetForecastAsync_pages_until_matching_region_is_found()
+    {
+        var provider = new NwacProvider(new HttpClient(new PagedNwacHandler()), new FakeProcessRunner("unused"));
+        var region = new ForecastRegion("nwac", "Stevens Pass", "stevens-pass", "Stevens Pass", "https://nwac.us/avalanche-forecast/#/stevens-pass");
+
+        var forecast = await provider.GetForecastAsync(region, CancellationToken.None);
+
+        Assert.NotNull(forecast);
+        Assert.Equal("Stevens Pass", forecast.Region.DisplayName);
+        Assert.Equal("5000 temps 29 / 20 F. ridgeline winds SW 15-25 mph. forecast Snow showers", forecast.WeatherSummary);
+    }
+
     private sealed class NwacHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -227,6 +240,100 @@ public sealed class NwacProviderTests
         {
             CallCount++;
             return Task.FromResult(new ProcessRunResult(0, output, string.Empty));
+        }
+    }
+
+    private sealed class PagedNwacHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri is null)
+            {
+                throw new InvalidOperationException("Missing request URI.");
+            }
+
+            var uri = request.RequestUri.AbsoluteUri;
+            if (uri.StartsWith("https://nwac.us/api/v2/avalanche-region-forecast", StringComparison.Ordinal))
+            {
+                var json = uri.Contains("offset=0", StringComparison.Ordinal)
+                    ? """
+                      {
+                        "meta": { "next": "/api/v2/avalanche-region-forecast?limit=100&offset=100" },
+                        "objects": [
+                          {
+                            "day1_danger_elev_high": "Moderate",
+                            "day1_danger_elev_low": "Low",
+                            "day1_danger_elev_middle": "Moderate",
+                            "day1_date": "2026-03-13",
+                            "publish_date": "2026-03-13T21:56:00Z",
+                            "zones": [
+                              { "active": true, "slug": "olympics", "zone_abbrev": "Olympics", "zone_name": "Olympics" }
+                            ]
+                          }
+                        ]
+                      }
+                      """
+                    : """
+                      {
+                        "meta": { "next": null },
+                        "objects": [
+                          {
+                            "bottom_line_summary": "<p>Stevens bottom line.</p>",
+                            "day1_danger_elev_high": "Considerable",
+                            "day1_danger_elev_low": "Moderate",
+                            "day1_danger_elev_middle": "Considerable",
+                            "day1_date": "2026-03-13",
+                            "day1_detailed_forecast": "<p>Stevens avalanche forecast.</p>",
+                            "publish_date": "2026-03-13T21:56:00Z",
+                            "snowpack_discussion": "<p>Stevens snowpack.</p>",
+                            "zones": [
+                              { "active": true, "slug": "stevens-pass", "zone_abbrev": "Stevens Pass", "zone_name": "Stevens Pass" }
+                            ]
+                          }
+                        ]
+                      }
+                      """;
+
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(json, Encoding.UTF8, "application/json"),
+                });
+            }
+
+            if (uri.StartsWith("https://nwac.us/weather-forecast-summary/", StringComparison.Ordinal))
+            {
+                const string html = """
+                    <div class="weather-summary">
+                      <div class="issued">
+                        Issued on 2:56 PM PDT Friday, March 13, 2026
+                              by Robert Hahn
+                      </div>
+                      <table>
+                        <tbody>
+                          <tr>
+                            <th>5000' Temperatures (Max / Min)</th>
+                            <td>29 / 20 F</td>
+                          </tr>
+                          <tr>
+                            <th>Ridgeline Winds</th>
+                            <td>SW 15-25 mph</td>
+                          </tr>
+                          <tr>
+                            <th>Weather Forecast</th>
+                            <td>Snow showers.</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    """;
+
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(html, Encoding.UTF8, "text/html"),
+                });
+            }
+
+            throw new InvalidOperationException($"Unexpected request: {request.RequestUri}");
         }
     }
 }
