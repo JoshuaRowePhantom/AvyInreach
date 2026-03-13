@@ -56,7 +56,7 @@ Those credentials are passed directly to Task Scheduler for that task registrati
 
 ## Delivery failsafe
 
-AvyInReach enforces a per-recipient rolling 24-hour report limit across all sends, regardless of provider or region.
+AvyInReach enforces a per-recipient rolling 24-hour report limit for `update`.
 
 Configure it with:
 
@@ -66,7 +66,9 @@ Configure it with:
 
 If you do not configure it, the default is `4`.
 
-One outbound report counts as one send even when Garmin splits that report into multiple 160-character reply parts.
+One outbound `update` report counts as one send even when Garmin splits that report into multiple 160-character reply parts.
+
+Manual `send` bypasses this failsafe.
 
 Example `smtp.json`:
 

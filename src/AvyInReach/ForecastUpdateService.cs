@@ -107,21 +107,26 @@ internal sealed class ForecastUpdateService(
             }
 
             log.Info("Sending summary...");
-            var sent = await TrySendReportAsync(
-                inReachAddress,
-                $"AvyInReach {forecast.Region.DisplayName}",
-                summary,
-                cancellationToken);
-            if (!sent)
+            if (mode == DeliveryMode.Send)
             {
-                if (mode == DeliveryMode.Send)
+                await emailSender.SendAsync(
+                    inReachAddress,
+                    $"AvyInReach {forecast.Region.DisplayName}",
+                    summary,
+                    cancellationToken);
+            }
+            else
+            {
+                var sent = await TrySendReportAsync(
+                    inReachAddress,
+                    $"AvyInReach {forecast.Region.DisplayName}",
+                    summary,
+                    cancellationToken);
+                if (!sent)
                 {
-                    throw new InvalidOperationException(
-                        $"24-hour report limit reached for '{inReachAddress}'. No report was sent.");
+                    await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
+                    return;
                 }
-
-                await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
-                return;
             }
 
             state.LastForecastFingerprint = fingerprint;

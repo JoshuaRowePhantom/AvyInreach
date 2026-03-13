@@ -225,6 +225,38 @@ public sealed class ForecastUpdateServiceTests
         Assert.Equal(["summary 1", "summary 2", "summary 3", "summary 4", "summary 6"], emailSender.SentBodies);
     }
 
+    [Fact]
+    public async Task Send_bypasses_daily_report_limit()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        await deliveryConfigurationStore.ConfigureAsync(1, CancellationToken.None);
+        await stateStore.UpsertRecipientAsync(
+            new RecipientDeliveryStateRecord
+            {
+                InReachAddress = "user@inreach.garmin.com",
+                SentReportsUtc = [new DateTimeOffset(2026, 3, 13, 17, 0, 0, TimeSpan.Zero)],
+            },
+            CancellationToken.None);
+        var provider = new SequentialForecastProvider([BuildForecast()]);
+        var summarizer = new FakeSummarizer(["manual summary"]);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([provider]),
+            summarizer,
+            emailSender,
+            deliveryConfigurationStore,
+            stateStore,
+            clock,
+            new ConsoleLog());
+
+        await service.ProcessAsync(DeliveryMode.Send, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+
+        Assert.Equal(["manual summary"], emailSender.SentBodies);
+    }
+
     private static AvalancheForecast BuildForecast(string weatherSummary = "weather summary") =>
         new(
             new ForecastRegion("avalanche-canada", "Glacier", "report-1", "area-1", "https://example.com"),

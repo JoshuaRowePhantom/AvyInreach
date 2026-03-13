@@ -307,7 +307,7 @@ internal static class CommandText
 
         Notes:
           - Phase 1 supports only provider 'avalanche-canada'
-          - no recipient receives more than the configured reports per rolling 24 hours (default 4)
+          - update enforces a rolling 24-hour per-recipient report cap (default 4)
           - inreach.garmin.com recipients require a configured Garmin reply link
           - Garmin replies are split into up to the configured number of 160-char messages (default 3)
           - summary prints the generated Copilot summary without sending email

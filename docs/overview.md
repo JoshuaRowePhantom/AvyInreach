@@ -42,7 +42,7 @@ If the summary text changed, it sends. If the summary text is identical, it does
 
 `summary` uses the same fetch and Copilot summarization path, but prints the generated line to stdout instead of sending mail.
 
-Before any outbound send, AvyInReach also enforces a per-recipient rolling 24-hour report cap. The default is `4`, and one Garmin multipart delivery still counts as one report.
+`update` also enforces a per-recipient rolling 24-hour report cap. The default is `4`, and one Garmin multipart delivery still counts as one report. Manual `send` bypasses that cap.
 
 ## Summary shape
 
