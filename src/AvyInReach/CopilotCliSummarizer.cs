@@ -88,6 +88,7 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
         builder.AppendLine("- If there is no useful decision-driving notice that fits, omit the notice phrase entirely.");
         builder.AppendLine("- Weather must appear once at the end and must begin with 'WX: '. Weather must always include sun/cloud, wind, and low/high temperature in terse form.");
         builder.AppendLine("- In WX, prioritize the main ski day covered by the bulletin. If the bulletin is issued later in the day, treat the next daytime period as primary.");
+        builder.AppendLine("- Also include the issue evening or overnight period when the source provides it and it materially helps explain what you will encounter while skiing; compress it tersely rather than dropping the main ski day.");
         builder.AppendLine("- After the main ski-day forecast, prefer previous 24-hour snow or recent storm snow information from the source material before secondary forecast periods.");
         builder.AppendLine("- Prefer the most informative terse weather wording that still fits, including a second day only when it adds useful change context after the primary ski-day forecast and recent snow context are covered.");
         builder.AppendLine("- If snowfall is approximate or qualified in the source, preserve that tersely with markers like '~' or 'up to'.");

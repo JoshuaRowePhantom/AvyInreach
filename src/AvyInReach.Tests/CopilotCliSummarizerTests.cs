@@ -26,6 +26,9 @@ public sealed class CopilotCliSummarizerTests
             "In WX, prioritize the main ski day covered by the bulletin. If the bulletin is issued later in the day, treat the next daytime period as primary.",
             runner.Prompt);
         Assert.Contains(
+            "Also include the issue evening or overnight period when the source provides it and it materially helps explain what you will encounter while skiing; compress it tersely rather than dropping the main ski day.",
+            runner.Prompt);
+        Assert.Contains(
             "After the main ski-day forecast, prefer previous 24-hour snow or recent storm snow information from the source material before secondary forecast periods.",
             runner.Prompt);
         Assert.Contains(
