@@ -124,6 +124,8 @@ Install a 15-minute schedule with:
 
 When you create a schedule, AvyInReach prompts for the Task Scheduler run-as username and password.
 
+Before installing the task, `schedule` validates that the recipient has the stored recipient settings needed for summary sizing, and Garmin recipients must also already have a configured Garmin reply link.
+
 Those credentials are passed directly to Task Scheduler for that task registration and are not stored in AvyInReach's local config files.
 
 ## Data storage

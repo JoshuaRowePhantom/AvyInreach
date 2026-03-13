@@ -36,6 +36,9 @@ internal sealed class CliApplication
             var scheduleStore = new ScheduleStore(appPaths);
             var smtpConfigurationStore = new SmtpConfigurationStore(appPaths);
             var garminConfigurationStore = new GarminConfigurationStore(appPaths);
+            var recipientConfigurationValidator = new RecipientConfigurationValidator(
+                recipientConfigurationStore,
+                garminConfigurationStore);
             var processRunner = new ProcessRunner();
             var provider = new AvalancheCanadaProvider(httpClient, processRunner);
             var providerRegistry = new ProviderRegistry([provider]);
@@ -118,6 +121,7 @@ internal sealed class CliApplication
                     await HandleScheduleAsync(
                         providerRegistry,
                         scheduleStore,
+                        recipientConfigurationValidator,
                         scheduler,
                         scheduleCommand,
                         cancellationToken);
@@ -263,6 +267,7 @@ internal sealed class CliApplication
     private async Task HandleScheduleAsync(
         ProviderRegistry registry,
         ScheduleStore scheduleStore,
+        RecipientConfigurationValidator recipientConfigurationValidator,
         WindowsTaskScheduler scheduler,
         ScheduleCommand command,
         CancellationToken cancellationToken)
@@ -271,6 +276,10 @@ internal sealed class CliApplication
         {
             throw new PlatformNotSupportedException("Scheduling is supported only on Windows.");
         }
+
+        await recipientConfigurationValidator.EnsureScheduledRecipientConfiguredAsync(
+            command.InReachAddress,
+            cancellationToken);
 
         var provider = registry.GetByName(command.Provider);
         var region = await provider.ResolveRegionAsync(command.Region, cancellationToken);

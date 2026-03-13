@@ -45,6 +45,8 @@ Phase 1 supports only `avalanche-canada`.
 
 `schedule` creates a Windows Task Scheduler task that runs every 15 minutes between the requested start and end dates.
 
+It fails fast if the recipient is missing required recipient configuration, and Garmin recipients must already have a configured Garmin reply link.
+
 The app installs the task with `schtasks.exe` and configures the task XML so the task expires and self-deletes after the date range closes.
 
 ## How `update` decides to send
