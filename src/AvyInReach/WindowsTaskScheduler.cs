@@ -15,7 +15,7 @@ internal sealed class WindowsTaskScheduler(ProcessRunner processRunner, ConsoleL
         var xml = BuildTaskXml(record);
         var tempPath = Path.Combine(Path.GetTempPath(), $"{record.WindowsTaskName}.xml");
 
-        await File.WriteAllTextAsync(tempPath, xml, Encoding.UTF8, cancellationToken);
+        await File.WriteAllTextAsync(tempPath, xml, Encoding.Unicode, cancellationToken);
         try
         {
             var result = await processRunner.RunAsync(
@@ -75,59 +75,60 @@ internal sealed class WindowsTaskScheduler(ProcessRunner processRunner, ConsoleL
     [SupportedOSPlatform("windows")]
     private static string BuildTaskXml(ScheduleRecord record)
     {
+        XNamespace ns = "http://schemas.microsoft.com/windows/2004/02/mit/task";
         var startBoundary = record.StartDate.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss");
         var endBoundary = record.EndDate.ToDateTime(new TimeOnly(23, 59, 59)).ToString("yyyy-MM-ddTHH:mm:ss");
         var userSid = WindowsIdentity.GetCurrent().User?.Value
             ?? throw new InvalidOperationException("Could not determine current Windows user SID.");
 
         var document = new XDocument(
-            new XElement("Task",
+            new XDeclaration("1.0", "UTF-16", null),
+            new XElement(ns + "Task",
                 new XAttribute("version", "1.4"),
-                new XAttribute("xmlns", "http://schemas.microsoft.com/windows/2004/02/mit/task"),
-                new XElement("RegistrationInfo",
-                    new XElement("Description", "AvyInReach forecast update schedule")),
-                new XElement("Triggers",
-                    new XElement("CalendarTrigger",
-                        new XElement("StartBoundary", startBoundary),
-                        new XElement("EndBoundary", endBoundary),
-                        new XElement("Enabled", "true"),
-                        new XElement("ScheduleByDay",
-                            new XElement("DaysInterval", "1")),
-                        new XElement("Repetition",
-                            new XElement("Interval", "PT15M"),
-                            new XElement("Duration", "P1D"),
-                            new XElement("StopAtDurationEnd", "false")))),
-                new XElement("Principals",
-                    new XElement("Principal",
+                new XElement(ns + "RegistrationInfo",
+                    new XElement(ns + "Description", "AvyInReach forecast update schedule")),
+                new XElement(ns + "Triggers",
+                    new XElement(ns + "CalendarTrigger",
+                        new XElement(ns + "StartBoundary", startBoundary),
+                        new XElement(ns + "EndBoundary", endBoundary),
+                        new XElement(ns + "Enabled", "true"),
+                        new XElement(ns + "ScheduleByDay",
+                            new XElement(ns + "DaysInterval", "1")),
+                        new XElement(ns + "Repetition",
+                            new XElement(ns + "Interval", "PT15M"),
+                            new XElement(ns + "Duration", "P1D"),
+                            new XElement(ns + "StopAtDurationEnd", "false")))),
+                new XElement(ns + "Principals",
+                    new XElement(ns + "Principal",
                         new XAttribute("id", "Author"),
-                        new XElement("UserId", userSid),
-                        new XElement("LogonType", "InteractiveToken"),
-                        new XElement("RunLevel", "LeastPrivilege"))),
-                new XElement("Settings",
-                    new XElement("MultipleInstancesPolicy", "IgnoreNew"),
-                    new XElement("DisallowStartIfOnBatteries", "false"),
-                    new XElement("StopIfGoingOnBatteries", "false"),
-                    new XElement("AllowHardTerminate", "true"),
-                    new XElement("StartWhenAvailable", "true"),
-                    new XElement("RunOnlyIfNetworkAvailable", "false"),
-                    new XElement("IdleSettings",
-                        new XElement("StopOnIdleEnd", "false"),
-                        new XElement("RestartOnIdle", "false")),
-                    new XElement("AllowStartOnDemand", "true"),
-                    new XElement("Enabled", "true"),
-                    new XElement("Hidden", "false"),
-                    new XElement("RunOnlyIfIdle", "false"),
-                    new XElement("WakeToRun", "false"),
-                    new XElement("ExecutionTimeLimit", "PT15M"),
-                    new XElement("Priority", "7"),
-                    new XElement("DeleteExpiredTaskAfter", "PT0S")),
-                new XElement("Actions",
+                        new XElement(ns + "UserId", userSid),
+                        new XElement(ns + "LogonType", "InteractiveToken"),
+                        new XElement(ns + "RunLevel", "LeastPrivilege"))),
+                new XElement(ns + "Settings",
+                    new XElement(ns + "MultipleInstancesPolicy", "IgnoreNew"),
+                    new XElement(ns + "DisallowStartIfOnBatteries", "false"),
+                    new XElement(ns + "StopIfGoingOnBatteries", "false"),
+                    new XElement(ns + "AllowHardTerminate", "true"),
+                    new XElement(ns + "StartWhenAvailable", "true"),
+                    new XElement(ns + "RunOnlyIfNetworkAvailable", "false"),
+                    new XElement(ns + "IdleSettings",
+                        new XElement(ns + "StopOnIdleEnd", "false"),
+                        new XElement(ns + "RestartOnIdle", "false")),
+                    new XElement(ns + "AllowStartOnDemand", "true"),
+                    new XElement(ns + "Enabled", "true"),
+                    new XElement(ns + "Hidden", "false"),
+                    new XElement(ns + "RunOnlyIfIdle", "false"),
+                    new XElement(ns + "WakeToRun", "false"),
+                    new XElement(ns + "ExecutionTimeLimit", "PT15M"),
+                    new XElement(ns + "Priority", "7"),
+                    new XElement(ns + "DeleteExpiredTaskAfter", "PT0S")),
+                new XElement(ns + "Actions",
                     new XAttribute("Context", "Author"),
-                    new XElement("Exec",
-                        new XElement("Command", record.ExecutePath),
-                        new XElement("Arguments", record.Arguments)))));
+                    new XElement(ns + "Exec",
+                        new XElement(ns + "Command", record.ExecutePath),
+                        new XElement(ns + "Arguments", record.Arguments)))));
 
-        return document.ToString();
+        return document.ToString(SaveOptions.None);
     }
 }
 
