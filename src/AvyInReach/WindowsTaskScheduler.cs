@@ -1,33 +1,42 @@
 using System.Reflection;
-using System.Security.Principal;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Xml.Linq;
 
 namespace AvyInReach;
 
-internal sealed class WindowsTaskScheduler(ProcessRunner processRunner, ConsoleLog log)
+internal sealed class WindowsTaskScheduler(IProcessRunner processRunner, ConsoleLog log)
 {
     [SupportedOSPlatform("windows")]
-    public async Task RegisterAsync(ScheduleRecord record, CancellationToken cancellationToken)
+    public async Task RegisterAsync(
+        ScheduleRecord record,
+        ScheduledTaskCredentials credentials,
+        CancellationToken cancellationToken)
     {
         EnsureWindows();
-        var xml = BuildTaskXml(record);
+        var xml = BuildTaskXml(record, credentials.Username, "Password");
         var tempPath = Path.Combine(Path.GetTempPath(), $"{record.WindowsTaskName}.xml");
 
         await File.WriteAllTextAsync(tempPath, xml, Encoding.Unicode, cancellationToken);
         try
         {
+            var arguments = new List<string>
+            {
+                "/Create",
+                "/TN",
+                record.WindowsTaskName,
+                "/XML",
+                tempPath,
+                "/RU",
+                credentials.Username,
+                "/RP",
+                credentials.Password,
+            };
+            arguments.Add("/F");
+
             var result = await processRunner.RunAsync(
                 "schtasks.exe",
-                [
-                    "/Create",
-                    "/TN",
-                    record.WindowsTaskName,
-                    "/XML",
-                    tempPath,
-                    "/F",
-                ],
+                arguments,
                 cancellationToken);
 
             if (result.ExitCode != 0)
@@ -73,13 +82,11 @@ internal sealed class WindowsTaskScheduler(ProcessRunner processRunner, ConsoleL
     }
 
     [SupportedOSPlatform("windows")]
-    private static string BuildTaskXml(ScheduleRecord record)
+    private static string BuildTaskXml(ScheduleRecord record, string runAsUser, string logonType)
     {
         XNamespace ns = "http://schemas.microsoft.com/windows/2004/02/mit/task";
         var startBoundary = record.StartDate.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss");
         var endBoundary = record.EndDate.ToDateTime(new TimeOnly(23, 59, 59)).ToString("yyyy-MM-ddTHH:mm:ss");
-        var userSid = WindowsIdentity.GetCurrent().User?.Value
-            ?? throw new InvalidOperationException("Could not determine current Windows user SID.");
 
         var document = new XDocument(
             new XDeclaration("1.0", "UTF-16", null),
@@ -101,8 +108,8 @@ internal sealed class WindowsTaskScheduler(ProcessRunner processRunner, ConsoleL
                 new XElement(ns + "Principals",
                     new XElement(ns + "Principal",
                         new XAttribute("id", "Author"),
-                        new XElement(ns + "UserId", userSid),
-                        new XElement(ns + "LogonType", "InteractiveToken"),
+                        new XElement(ns + "UserId", runAsUser),
+                        new XElement(ns + "LogonType", logonType),
                         new XElement(ns + "RunLevel", "LeastPrivilege"))),
                 new XElement(ns + "Settings",
                     new XElement(ns + "MultipleInstancesPolicy", "IgnoreNew"),
@@ -131,6 +138,8 @@ internal sealed class WindowsTaskScheduler(ProcessRunner processRunner, ConsoleL
         return document.ToString(SaveOptions.None);
     }
 }
+
+internal sealed record ScheduledTaskCredentials(string Username, string Password);
 
 internal sealed class ScheduledInvocation
 {

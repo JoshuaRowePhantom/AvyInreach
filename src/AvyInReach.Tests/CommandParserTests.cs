@@ -62,4 +62,5 @@ public sealed class CommandParserTests
 
         Assert.Equal(4, command.MaxMessages);
     }
+
 }

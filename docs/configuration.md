@@ -48,6 +48,12 @@ Garmin sends replies in chunks of up to 160 characters each.
 
 By default, AvyInReach allows up to 3 Garmin message parts per send. That value is stored in `garmin.json` per recipient and can be increased with the optional `messages <count>` argument.
 
+## Scheduled task credentials
+
+When you create a schedule, AvyInReach prompts for the Task Scheduler run-as username and password.
+
+Those credentials are passed directly to Task Scheduler for that task registration and are not stored in AvyInReach's local config files.
+
 Example `smtp.json`:
 
 ```json

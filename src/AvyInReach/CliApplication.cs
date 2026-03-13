@@ -145,6 +145,42 @@ internal sealed class CliApplication
         _log.Info($"Max messages: {command.MaxMessages}");
     }
 
+    private static string ReadPassword(string prompt)
+    {
+        Console.Write(prompt);
+        if (Console.IsInputRedirected)
+        {
+            Console.WriteLine();
+            return Console.ReadLine() ?? string.Empty;
+        }
+
+        var password = new System.Text.StringBuilder();
+        while (true)
+        {
+            var key = Console.ReadKey(intercept: true);
+            if (key.Key == ConsoleKey.Enter)
+            {
+                Console.WriteLine();
+                return password.ToString();
+            }
+
+            if (key.Key == ConsoleKey.Backspace)
+            {
+                if (password.Length > 0)
+                {
+                    password.Length--;
+                }
+
+                continue;
+            }
+
+            if (!char.IsControl(key.KeyChar))
+            {
+                password.Append(key.KeyChar);
+            }
+        }
+    }
+
     private async Task HandleRegionsAsync(
         ProviderRegistry registry,
         string? providerName,
@@ -198,6 +234,9 @@ internal sealed class CliApplication
             command.InReachAddress,
             provider.Id,
             region.DisplayName);
+        var taskCredentials = new ScheduledTaskCredentials(
+            ReadRequiredLine("Task Scheduler username: "),
+            ReadPassword("Task Scheduler password: "));
 
         var record = new ScheduleRecord
         {
@@ -213,12 +252,24 @@ internal sealed class CliApplication
             CreatedUtc = DateTimeOffset.UtcNow,
         };
 
-        await scheduler.RegisterAsync(record, cancellationToken);
+        await scheduler.RegisterAsync(record, taskCredentials, cancellationToken);
         await scheduleStore.UpsertAsync(record, cancellationToken);
 
         _log.Info($"Installed schedule {record.Id}");
         _log.Info($"Task name: {record.WindowsTaskName}");
         _log.Info($"Range: {record.StartDate.ToString("M/d/yyyy", CultureInfo.InvariantCulture)} - {record.EndDate.ToString("M/d/yyyy", CultureInfo.InvariantCulture)}");
+    }
+
+    private static string ReadRequiredLine(string prompt)
+    {
+        Console.Write(prompt);
+        var value = Console.ReadLine()?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException("Value cannot be empty.");
+        }
+
+        return value;
     }
 
     private async Task HandleSchedulesAsync(ScheduleStore scheduleStore, CancellationToken cancellationToken)
