@@ -5,32 +5,75 @@
 - Windows
 - `.NET 10`
 - GitHub Copilot CLI installed and already authenticated
-- SMTP access that can send mail to the target InReach address
+- SMTP access for normal email recipients
 
-## SMTP environment variables
+## SMTP setup
 
-Required:
-
-- `AVYINREACH_SMTP_HOST`
-- `AVYINREACH_SMTP_PORT`
-- `AVYINREACH_SMTP_FROM`
-- `AVYINREACH_SMTP_ENABLE_SSL`
-
-Optional:
-
-- `AVYINREACH_SMTP_USERNAME`
-- `AVYINREACH_SMTP_PASSWORD`
-
-Example PowerShell setup:
+Configure SMTP once with:
 
 ```powershell
-$env:AVYINREACH_SMTP_HOST = "smtp.example.com"
-$env:AVYINREACH_SMTP_PORT = "587"
-$env:AVYINREACH_SMTP_FROM = "alerts@example.com"
-$env:AVYINREACH_SMTP_ENABLE_SSL = "true"
-$env:AVYINREACH_SMTP_USERNAME = "alerts@example.com"
-$env:AVYINREACH_SMTP_PASSWORD = "your-password"
+.\AvyInReach.exe smtp server undead.home.phantom.to:25 from avyinreach@phantom.to
 ```
+
+This writes `%LOCALAPPDATA%\AvyInReach\smtp.json`.
+
+Default JSON values are:
+
+- `enableSsl: false`
+- `useDefaultCredentials: true`
+
+The `smtp` command updates `server` and `fromAddress`. If you need explicit SMTP auth, edit `smtp.json` manually and add `username` and `password`.
+
+The configured `fromAddress` is also reused as the sender identity when posting Garmin replies through the public inReach reply page.
+
+## Garmin InReach setup
+
+If the recipient is an `@inreach.garmin.com` address, configure the Garmin reply link from a real incoming inReach email:
+
+```powershell
+.\AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example
+```
+
+Optional max-part override:
+
+```powershell
+.\AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example messages 4
+```
+
+This writes `%LOCALAPPDATA%\AvyInReach\garmin.json`.
+
+When sending to Garmin, AvyInReach fetches the configured reply page, extracts Garmin's hidden reply identifiers, and posts the message back through Garmin's web reply flow.
+
+Garmin sends replies in chunks of up to 160 characters each.
+
+By default, AvyInReach allows up to 3 Garmin message parts per send. That value is stored in `garmin.json` per recipient and can be increased with the optional `messages <count>` argument.
+
+Example `smtp.json`:
+
+```json
+{
+  "server": {
+    "host": "undead.home.phantom.to",
+    "port": 25
+  },
+  "fromAddress": "avyinreach@phantom.to",
+  "enableSsl": false,
+  "useDefaultCredentials": true,
+  "username": null,
+  "password": null
+}
+```
+
+## Data storage
+
+AvyInReach stores its local files in `%LOCALAPPDATA%\AvyInReach\`.
+
+Files:
+
+- `smtp.json` stores SMTP server and sender configuration
+- `garmin.json` stores Garmin reply links by InReach recipient address
+- `delivery-state.json` stores the last sent summary plus retry/error notification state
+- `schedules.json` stores installed schedule metadata and task names
 
 ## Copilot CLI integration
 

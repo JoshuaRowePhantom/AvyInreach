@@ -1,3 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+
 namespace AvyInReach;
 
 internal enum DeliveryMode
@@ -15,6 +19,7 @@ internal sealed class ForecastUpdateService(
     ConsoleLog log)
 {
     private static readonly TimeSpan RetryNoticeDelay = TimeSpan.FromHours(1);
+    private static readonly JsonSerializerOptions FingerprintSerializerOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<string> GenerateSummaryAsync(
         string providerName,
@@ -65,9 +70,14 @@ internal sealed class ForecastUpdateService(
                 return;
             }
 
-            log.Info("Generating Copilot summary...");
-            var summary = await summarizer.GenerateSummaryAsync(forecast, cancellationToken);
-            state.Region = forecast.Region.DisplayName;
+            state = await stateStore.GetAsync(
+                inReachAddress,
+                provider.Id,
+                [regionName, forecast.Region.DisplayName],
+                cancellationToken);
+
+            var fingerprint = ComputeForecastFingerprint(forecast);
+            state.Region = regionName;
             state.LastCheckedUtc = clock.UtcNow;
             state.ErrorSinceUtc = null;
             state.ErrorNoticeSent = false;
@@ -75,24 +85,37 @@ internal sealed class ForecastUpdateService(
             state.MissingForecastSinceUtc = null;
             state.MissingForecastNoticeSent = false;
 
-            if (mode == DeliveryMode.Send || !string.Equals(state.LastSummary, summary, StringComparison.Ordinal))
+            if (mode == DeliveryMode.Update
+                && string.Equals(state.LastForecastFingerprint, fingerprint, StringComparison.Ordinal))
             {
-                log.Info("Sending summary...");
-                await emailSender.SendAsync(
-                    inReachAddress,
-                    $"AvyInReach {forecast.Region.DisplayName}",
-                    summary,
-                    cancellationToken);
-
-                state.LastSummary = summary;
-                state.LastSentUtc = clock.UtcNow;
-                await stateStore.UpsertAsync(state, cancellationToken);
-                log.Info("Summary sent.");
+                await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
+                log.Info("Forecast unchanged; no update sent.");
                 return;
             }
 
-            await stateStore.UpsertAsync(state, cancellationToken);
-            log.Info("Summary unchanged; no update sent.");
+            log.Info("Generating Copilot summary...");
+            var summary = await summarizer.GenerateSummaryAsync(forecast, cancellationToken);
+            state.LastForecastFingerprint = fingerprint;
+            if (mode == DeliveryMode.Update
+                && string.Equals(state.LastSummary, summary, StringComparison.Ordinal))
+            {
+                await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
+                log.Info("Summary unchanged; no update sent.");
+                return;
+            }
+
+            log.Info("Sending summary...");
+            await emailSender.SendAsync(
+                inReachAddress,
+                $"AvyInReach {forecast.Region.DisplayName}",
+                summary,
+                cancellationToken);
+
+            state.LastSummary = summary;
+            state.LastSentUtc = clock.UtcNow;
+            await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
+            log.Info("Summary sent.");
+            return;
         }
         catch (Exception ex)
         {
@@ -183,5 +206,53 @@ internal sealed class ForecastUpdateService(
         }
 
         return forecast;
+    }
+
+    private static string ComputeForecastFingerprint(AvalancheForecast forecast)
+    {
+        var payload = JsonSerializer.Serialize(
+            new
+            {
+                Region = new
+                {
+                    forecast.Region.ProviderId,
+                    forecast.Region.DisplayName,
+                    forecast.Region.ReportId,
+                    forecast.Region.AreaId,
+                    forecast.Region.ForecastUrl,
+                },
+                forecast.ForecastUrl,
+                forecast.Title,
+                forecast.OwnerName,
+                IssuedAt = forecast.IssuedAt.ToUniversalTime(),
+                ValidUntil = forecast.ValidUntil.ToUniversalTime(),
+                forecast.TimezoneId,
+                DangerRatings = new
+                {
+                    forecast.CurrentDangerRatings.BelowTreeline,
+                    forecast.CurrentDangerRatings.Treeline,
+                    forecast.CurrentDangerRatings.Alpine,
+                },
+                Problems = forecast.Problems.Select(problem => new
+                {
+                    problem.Name,
+                    problem.BelowTreeline,
+                    problem.Treeline,
+                    problem.Alpine,
+                    problem.SizeMin,
+                    problem.SizeMax,
+                    Aspects = problem.Aspects.Select(AspectFormat.Normalize).ToArray(),
+                    problem.Comment,
+                }).ToArray(),
+                forecast.Highlights,
+                forecast.AvalancheSummary,
+                forecast.SnowpackSummary,
+                forecast.WeatherSummary,
+                forecast.Message,
+            },
+            FingerprintSerializerOptions);
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
+        return Convert.ToHexString(hash);
     }
 }

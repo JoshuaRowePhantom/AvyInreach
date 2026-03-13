@@ -1,4 +1,5 @@
 using System.Globalization;
+
 namespace AvyInReach;
 
 internal sealed class CliApplication
@@ -31,11 +32,15 @@ internal sealed class CliApplication
             var appPaths = new AppPaths();
             var stateStore = new DeliveryStateStore(appPaths);
             var scheduleStore = new ScheduleStore(appPaths);
+            var smtpConfigurationStore = new SmtpConfigurationStore(appPaths);
+            var garminConfigurationStore = new GarminConfigurationStore(appPaths);
             var processRunner = new ProcessRunner();
-            var provider = new AvalancheCanadaProvider(httpClient);
+            var provider = new AvalancheCanadaProvider(httpClient, processRunner);
             var providerRegistry = new ProviderRegistry([provider]);
             var summarizer = new CopilotCliSummarizer(processRunner);
-            var emailSender = new SmtpEmailSender();
+            var emailSender = new RoutingEmailSender(
+                new SmtpEmailSender(smtpConfigurationStore),
+                new GarminInReachEmailSender(httpClient, smtpConfigurationStore, garminConfigurationStore));
             var clock = new SystemClock();
             var updateService = new ForecastUpdateService(
                 providerRegistry,
@@ -50,6 +55,14 @@ internal sealed class CliApplication
             {
                 case HelpCommand:
                     _log.Info(CommandText.HelpText);
+                    return 0;
+
+                case GarminConfigureCommand garminConfigureCommand:
+                    await HandleGarminConfigureAsync(garminConfigurationStore, garminConfigureCommand, cancellationToken);
+                    return 0;
+
+                case SmtpConfigureCommand smtpConfigureCommand:
+                    await HandleSmtpConfigureAsync(smtpConfigurationStore, smtpConfigureCommand, cancellationToken);
                     return 0;
 
                 case RegionsCommand regionsCommand:
@@ -107,6 +120,29 @@ internal sealed class CliApplication
             _log.Error(ex.Message);
             return 1;
         }
+    }
+
+    private async Task HandleSmtpConfigureAsync(
+        SmtpConfigurationStore configurationStore,
+        SmtpConfigureCommand command,
+        CancellationToken cancellationToken)
+    {
+        await configurationStore.ConfigureAsync(command.Server, command.FromAddress, cancellationToken);
+        _log.Info("SMTP configuration saved.");
+        _log.Info($"Server: {command.Server.Value}");
+        _log.Info($"From: {command.FromAddress}");
+    }
+
+    private async Task HandleGarminConfigureAsync(
+        GarminConfigurationStore configurationStore,
+        GarminConfigureCommand command,
+        CancellationToken cancellationToken)
+    {
+        await configurationStore.ConfigureAsync(command.InReachAddress, command.ReplyLink, command.MaxMessages, cancellationToken);
+        _log.Info("Garmin reply link saved.");
+        _log.Info($"InReach: {command.InReachAddress}");
+        _log.Info($"Reply link: {command.ReplyLink}");
+        _log.Info($"Max messages: {command.MaxMessages}");
     }
 
     private async Task HandleRegionsAsync(

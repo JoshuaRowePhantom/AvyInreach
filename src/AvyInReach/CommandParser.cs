@@ -16,6 +16,8 @@ internal static class CommandParser
         return command switch
         {
             "help" => new HelpCommand(),
+            "garmin" => ParseGarmin(args),
+            "smtp" => ParseSmtp(args),
             "regions" => ParseRegions(args),
             "summary" => ParseSummary(args),
             "send" => ParseSend(args),
@@ -116,6 +118,40 @@ internal static class CommandParser
         return new UnscheduleCommand(args[1]);
     }
 
+    private static ParsedCommand ParseSmtp(string[] args)
+    {
+        if (args.Length != 5
+            || !string.Equals(args[1], "server", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(args[3], "from", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CliUsageException("Usage: AvyInReach.exe smtp server <host:port> from <address>");
+        }
+
+        return new SmtpConfigureCommand(ParseRequiredSmtpServer(args[2]), args[4].Trim());
+    }
+
+    private static ParsedCommand ParseGarmin(string[] args)
+    {
+        if ((args.Length != 4 && args.Length != 6)
+            || !string.Equals(args[1], "link", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CliUsageException("Usage: AvyInReach.exe garmin link <inreach> <reply-url> [messages <count>]");
+        }
+
+        var maxMessages = 3;
+        if (args.Length == 6)
+        {
+            if (!string.Equals(args[4], "messages", StringComparison.OrdinalIgnoreCase)
+                || !int.TryParse(args[5], out maxMessages)
+                || maxMessages < 1)
+            {
+                throw new CliUsageException("Usage: AvyInReach.exe garmin link <inreach> <reply-url> [messages <count>]");
+            }
+        }
+
+        return new GarminConfigureCommand(args[2].Trim(), ParseRequiredUri(args[3]), maxMessages);
+    }
+
     private static string JoinRegion(string[] args, int startIndex) =>
         string.Join(' ', args[startIndex..]).Trim();
 
@@ -145,6 +181,53 @@ internal static class CommandParser
     }
 
     private static bool IsYearless(string value) => value.Count(ch => ch == '/') == 1;
+
+    private static SmtpServer ParseRequiredSmtpServer(string value)
+    {
+        if (!TryParseSmtpServer(value, out var server))
+        {
+            throw new CliUsageException(
+                $"Could not parse SMTP server '{value}'. Expected host:port with a port from 1 to 65535.");
+        }
+
+        return server;
+    }
+
+    private static bool TryParseSmtpServer(string value, out SmtpServer server)
+    {
+        server = null!;
+        var separatorIndex = value.LastIndexOf(':');
+        if (separatorIndex <= 0 || separatorIndex == value.Length - 1)
+        {
+            return false;
+        }
+
+        var host = value[..separatorIndex].Trim();
+        var portValue = value[(separatorIndex + 1)..].Trim();
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            return false;
+        }
+
+        if (!int.TryParse(portValue, out var port) || port < 1 || port > 65535)
+        {
+            return false;
+        }
+
+        server = new SmtpServer(host, port);
+        return true;
+    }
+
+    private static Uri ParseRequiredUri(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new CliUsageException($"Could not parse URL '{value}'. Expected an absolute http or https URL.");
+        }
+
+        return uri;
+    }
 }
 
 internal abstract record ParsedCommand;
@@ -152,6 +235,10 @@ internal abstract record ParsedCommand;
 internal sealed record HelpCommand : ParsedCommand;
 
 internal sealed record RegionsCommand(string? Provider) : ParsedCommand;
+
+internal sealed record GarminConfigureCommand(string InReachAddress, Uri ReplyLink, int MaxMessages) : ParsedCommand;
+
+internal sealed record SmtpConfigureCommand(SmtpServer Server, string FromAddress) : ParsedCommand;
 
 internal sealed record SummaryCommand(string Provider, string Region) : ParsedCommand;
 
@@ -180,6 +267,8 @@ internal static class CommandText
 
         Commands:
           AvyInReach.exe help
+          AvyInReach.exe garmin link <inreach> <reply-url> [messages <count>]
+          AvyInReach.exe smtp server <host:port> from <address>
           AvyInReach.exe regions [provider]
           AvyInReach.exe summary <provider> <region>
           AvyInReach.exe send <inreach> <provider> <region>
@@ -189,6 +278,9 @@ internal static class CommandText
           AvyInReach.exe unschedule <id>
 
         Examples:
+          AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example
+          AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example messages 3
+          AvyInReach.exe smtp server smtp.example.com:25 from avyinreach@example.com
           AvyInReach.exe regions avalanche-canada
           AvyInReach.exe summary avalanche-canada Glacier
           AvyInReach.exe send somebody@inreach.garmin.com avalanche-canada Glacier
@@ -197,18 +289,15 @@ internal static class CommandText
 
         Notes:
           - Phase 1 supports only provider 'avalanche-canada'
+          - inreach.garmin.com recipients require a configured Garmin reply link
+          - Garmin replies are split into up to the configured number of 160-char messages (default 3)
           - summary prints the generated Copilot summary without sending email
           - update sends only when the final generated summary text changes
-          - summaries always include 'valid to M/d HH:mmTZ'
+          - summaries always begin with 'valid to M/d HH:mmTZ'
 
-        Required environment variables for email:
-          AVYINREACH_SMTP_HOST
-          AVYINREACH_SMTP_PORT
-          AVYINREACH_SMTP_FROM
-          AVYINREACH_SMTP_ENABLE_SSL
-
-        Optional SMTP environment variables:
-          AVYINREACH_SMTP_USERNAME
-          AVYINREACH_SMTP_PASSWORD
+        SMTP settings are stored in %LocalAppData%\AvyInReach\smtp.json.
+        Garmin reply links are stored in %LocalAppData%\AvyInReach\garmin.json.
+        The configure command writes server and from address there.
+        JSON defaults remain enableSsl=false and useDefaultCredentials=true unless edited.
         """;
 }

@@ -5,21 +5,34 @@ internal sealed class DeliveryStateStore(AppPaths paths)
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     public async Task<DeliveryStateRecord> GetAsync(string inReachAddress, string provider, string region, CancellationToken cancellationToken)
+        => await GetAsync(inReachAddress, provider, [region], cancellationToken);
+
+    public async Task<DeliveryStateRecord> GetAsync(
+        string inReachAddress,
+        string provider,
+        IEnumerable<string> regions,
+        CancellationToken cancellationToken)
     {
         await _lock.WaitAsync(cancellationToken);
         try
         {
             var file = await LoadAsync(cancellationToken);
-            return file.Entries.FirstOrDefault(entry =>
-                       string.Equals(entry.InReachAddress, inReachAddress, StringComparison.OrdinalIgnoreCase) &&
-                       string.Equals(entry.Provider, provider, StringComparison.OrdinalIgnoreCase) &&
-                       string.Equals(entry.Region, region, StringComparison.OrdinalIgnoreCase))
+            var regionList = regions
+                .Where(region => !string.IsNullOrWhiteSpace(region))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var match = file.Entries.FirstOrDefault(entry =>
+                string.Equals(entry.InReachAddress, inReachAddress, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(entry.Provider, provider, StringComparison.OrdinalIgnoreCase) &&
+                regionList.Any(region => string.Equals(entry.Region, region, StringComparison.OrdinalIgnoreCase)));
+
+            return match
                    ?? new DeliveryStateRecord
                    {
                        InReachAddress = inReachAddress,
                        Provider = provider,
-                       Region = region,
-                   };
+                        Region = regionList.FirstOrDefault() ?? string.Empty,
+                    };
         }
         finally
         {
@@ -28,24 +41,29 @@ internal sealed class DeliveryStateStore(AppPaths paths)
     }
 
     public async Task UpsertAsync(DeliveryStateRecord record, CancellationToken cancellationToken)
+        => await UpsertAsync(record, [record.Region], cancellationToken);
+
+    public async Task UpsertAsync(
+        DeliveryStateRecord record,
+        IEnumerable<string> regions,
+        CancellationToken cancellationToken)
     {
         await _lock.WaitAsync(cancellationToken);
         try
         {
             var file = await LoadAsync(cancellationToken);
-            var existingIndex = file.Entries.FindIndex(entry =>
+            var regionList = regions
+                .Append(record.Region)
+                .Where(region => !string.IsNullOrWhiteSpace(region))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            file.Entries.RemoveAll(entry =>
                 string.Equals(entry.InReachAddress, record.InReachAddress, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(entry.Provider, record.Provider, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(entry.Region, record.Region, StringComparison.OrdinalIgnoreCase));
+                regionList.Any(region => string.Equals(entry.Region, region, StringComparison.OrdinalIgnoreCase)));
 
-            if (existingIndex >= 0)
-            {
-                file.Entries[existingIndex] = record;
-            }
-            else
-            {
-                file.Entries.Add(record);
-            }
+            file.Entries.Add(record);
 
             await JsonFileStore.WriteAsync(paths.DeliveryStatePath, file, cancellationToken);
         }
@@ -71,6 +89,8 @@ internal sealed class DeliveryStateRecord
     public string Provider { get; set; } = string.Empty;
 
     public string Region { get; set; } = string.Empty;
+
+    public string? LastForecastFingerprint { get; set; }
 
     public string? LastSummary { get; set; }
 

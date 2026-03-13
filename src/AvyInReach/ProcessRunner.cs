@@ -3,7 +3,15 @@ using System.Text;
 
 namespace AvyInReach;
 
-internal sealed class ProcessRunner
+internal interface IProcessRunner
+{
+    Task<ProcessRunResult> RunAsync(
+        string fileName,
+        IEnumerable<string> arguments,
+        CancellationToken cancellationToken);
+}
+
+internal sealed class ProcessRunner : IProcessRunner
 {
     public async Task<ProcessRunResult> RunAsync(
         string fileName,

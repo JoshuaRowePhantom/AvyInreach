@@ -36,6 +36,7 @@ internal sealed record ForecastProblem(
     bool BelowTreeline,
     bool Treeline,
     bool Alpine,
+    int? Likelihood,
     decimal? SizeMin,
     decimal? SizeMax,
     IReadOnlyList<string> Aspects,
@@ -77,6 +78,8 @@ internal sealed record ForecastProblem(
     }
 
     private static string Presence(bool isPresent) => isPresent ? "O" : "X";
+
+    public string LikelihoodString() => Likelihood?.ToString() ?? "NA";
 
     private static string Format(decimal value)
     {

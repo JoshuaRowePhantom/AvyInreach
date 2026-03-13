@@ -11,6 +11,8 @@ internal class AppPaths
         RootDirectory = root;
         DeliveryStatePath = Path.Combine(root, "delivery-state.json");
         SchedulePath = Path.Combine(root, "schedules.json");
+        SmtpConfigurationPath = Path.Combine(root, "smtp.json");
+        GarminConfigurationPath = Path.Combine(root, "garmin.json");
     }
 
     public string RootDirectory { get; }
@@ -18,4 +20,8 @@ internal class AppPaths
     public string DeliveryStatePath { get; }
 
     public string SchedulePath { get; }
+
+    public string SmtpConfigurationPath { get; }
+
+    public string GarminConfigurationPath { get; }
 }

@@ -1,9 +1,10 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace AvyInReach;
 
-internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient) : IAvalancheProvider
+internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IProcessRunner processRunner) : IAvalancheProvider
 {
     private const string MetadataUrl = "https://api.avalanche.ca/forecasts/en/metadata";
     private const string ProductsUrl = "https://api.avalanche.ca/forecasts/en/products";
@@ -45,10 +46,25 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient) : I
         var regions = await GetRegionsAsync(cancellationToken);
         var normalizedInput = Normalize(regionName);
 
-        return regions.FirstOrDefault(region =>
+        var directMatch = regions.FirstOrDefault(region =>
             Normalize(region.DisplayName) == normalizedInput ||
             Normalize(region.ReportId) == normalizedInput ||
             Normalize(region.AreaId) == normalizedInput);
+        if (directMatch is not null)
+        {
+            return directMatch;
+        }
+
+        var containsMatches = regions.Where(region =>
+                Normalize(region.DisplayName).Contains(normalizedInput, StringComparison.Ordinal) ||
+                normalizedInput.Contains(Normalize(region.DisplayName), StringComparison.Ordinal))
+            .ToList();
+        if (containsMatches.Count == 1)
+        {
+            return containsMatches[0];
+        }
+
+        return await ResolveRegionWithCopilotAsync(regionName, regions, cancellationToken);
     }
 
     public async Task<AvalancheForecast?> GetForecastAsync(ForecastRegion region, CancellationToken cancellationToken)
@@ -77,6 +93,7 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient) : I
                 problem.Data?.Elevations?.Any(item => item.Value == "btl") == true,
                 problem.Data?.Elevations?.Any(item => item.Value == "tln") == true,
                 problem.Data?.Elevations?.Any(item => item.Value == "alp") == true,
+                ParseLikelihoodValue(problem.Data?.Likelihood?.Value ?? problem.Data?.Likelihood?.Display),
                 ParseDecimal(problem.Data?.ExpectedSize?.Min),
                 ParseDecimal(problem.Data?.ExpectedSize?.Max),
                 problem.Data?.Aspects?.Select(item => item.Value ?? item.Display ?? string.Empty)
@@ -126,6 +143,17 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient) : I
     private static decimal? ParseDecimal(string? value) =>
         decimal.TryParse(value, out var result) ? result : null;
 
+    private static int? ParseLikelihoodValue(string? value) =>
+        Normalize(value ?? string.Empty) switch
+        {
+            "unlikely" => 1,
+            "possible" => 2,
+            "likely" => 3,
+            "verylikely" => 4,
+            "certain" => 5,
+            _ => null,
+        };
+
     private static string ToPlainText(string? html)
     {
         if (string.IsNullOrWhiteSpace(html))
@@ -146,6 +174,68 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient) : I
 
     private static string Normalize(string value) =>
         new string(value.Where(ch => char.IsLetterOrDigit(ch)).ToArray()).ToLowerInvariant();
+
+    private async Task<ForecastRegion?> ResolveRegionWithCopilotAsync(
+        string requestedLocation,
+        IReadOnlyList<ForecastRegion> regions,
+        CancellationToken cancellationToken)
+    {
+        if (regions.Count == 0)
+        {
+            return null;
+        }
+
+        var prompt = BuildLocationResolutionPrompt(requestedLocation, regions);
+        var result = await processRunner.RunAsync(
+            "copilot",
+            [
+                "-p",
+                prompt,
+                "--allow-all",
+                "--silent",
+                "--output-format",
+                "text",
+                "--no-color",
+            ],
+            cancellationToken);
+
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Copilot location lookup failed: {result.CombinedOutput}");
+        }
+
+        var response = result.StandardOutput
+            .Replace(Environment.NewLine, " ")
+            .Trim()
+            .Trim('"', '\'', '.', ' ');
+
+        if (string.Equals(response, "NONE", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var normalizedResponse = Normalize(response);
+        return regions.FirstOrDefault(region => Normalize(region.DisplayName) == normalizedResponse);
+    }
+
+    private static string BuildLocationResolutionPrompt(string requestedLocation, IReadOnlyList<ForecastRegion> regions)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("You map a user-provided mountain or location to the best Avalanche Canada forecast region for today.");
+        builder.AppendLine("Return exactly one line.");
+        builder.AppendLine("Return only one exact candidate region name from the list below, or NONE.");
+        builder.AppendLine("Do not explain your answer.");
+        builder.AppendLine("Use general geographic knowledge to choose the best matching Avalanche Canada region for the requested location.");
+        builder.AppendLine();
+        builder.AppendLine($"Requested location: {requestedLocation}");
+        builder.AppendLine("Candidate region names:");
+        foreach (var region in regions)
+        {
+            builder.AppendLine($"- {region.DisplayName}");
+        }
+
+        return builder.ToString();
+    }
 
     [GeneratedRegex("<.*?>", RegexOptions.Compiled)]
     private static partial Regex HtmlTagRegex();
@@ -268,6 +358,8 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient) : I
         public IReadOnlyList<DisplayValue>? Elevations { get; init; }
 
         public IReadOnlyList<DisplayValue>? Aspects { get; init; }
+
+        public DisplayValue? Likelihood { get; init; }
 
         public ProblemExpectedSize? ExpectedSize { get; init; }
     }
