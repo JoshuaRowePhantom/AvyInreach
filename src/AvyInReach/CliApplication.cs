@@ -31,6 +31,7 @@ internal sealed class CliApplication
 
             var appPaths = new AppPaths();
             var stateStore = new DeliveryStateStore(appPaths);
+            var deliveryConfigurationStore = new DeliveryConfigurationStore(appPaths);
             var scheduleStore = new ScheduleStore(appPaths);
             var smtpConfigurationStore = new SmtpConfigurationStore(appPaths);
             var garminConfigurationStore = new GarminConfigurationStore(appPaths);
@@ -46,6 +47,7 @@ internal sealed class CliApplication
                 providerRegistry,
                 summarizer,
                 emailSender,
+                deliveryConfigurationStore,
                 stateStore,
                 clock,
                 _log);
@@ -59,6 +61,10 @@ internal sealed class CliApplication
 
                 case GarminConfigureCommand garminConfigureCommand:
                     await HandleGarminConfigureAsync(garminConfigurationStore, garminConfigureCommand, cancellationToken);
+                    return 0;
+
+                case DeliveryConfigureCommand deliveryConfigureCommand:
+                    await HandleDeliveryConfigureAsync(deliveryConfigurationStore, deliveryConfigureCommand, cancellationToken);
                     return 0;
 
                 case SmtpConfigureCommand smtpConfigureCommand:
@@ -143,6 +149,16 @@ internal sealed class CliApplication
         _log.Info($"InReach: {command.InReachAddress}");
         _log.Info($"Reply link: {command.ReplyLink}");
         _log.Info($"Max messages: {command.MaxMessages}");
+    }
+
+    private async Task HandleDeliveryConfigureAsync(
+        DeliveryConfigurationStore configurationStore,
+        DeliveryConfigureCommand command,
+        CancellationToken cancellationToken)
+    {
+        await configurationStore.ConfigureAsync(command.MaxReportsPer24Hours, cancellationToken);
+        _log.Info("Delivery configuration saved.");
+        _log.Info($"Max reports per 24 hours: {command.MaxReportsPer24Hours}");
     }
 
     private static string ReadPassword(string prompt)

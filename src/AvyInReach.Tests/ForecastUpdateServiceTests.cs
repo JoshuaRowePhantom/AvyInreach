@@ -5,7 +5,9 @@ public sealed class ForecastUpdateServiceTests
     [Fact]
     public async Task Update_skips_summarization_when_forecast_inputs_are_unchanged()
     {
-        var stateStore = new DeliveryStateStore(new AppPathsForTests());
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
         var provider = new SequentialForecastProvider([BuildForecast(), BuildForecast()]);
         var summarizer = new FakeSummarizer(["first summary", "second summary"]);
         var emailSender = new FakeEmailSender();
@@ -14,6 +16,7 @@ public sealed class ForecastUpdateServiceTests
             new ProviderRegistry([provider]),
             summarizer,
             emailSender,
+            deliveryConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -29,7 +32,9 @@ public sealed class ForecastUpdateServiceTests
     [Fact]
     public async Task Update_deduplicates_when_requested_location_resolves_to_same_forecast_region()
     {
-        var stateStore = new DeliveryStateStore(new AppPathsForTests());
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
         var provider = new SequentialForecastProvider([BuildForecast(), BuildForecast()]);
         var summarizer = new FakeSummarizer(["first summary", "second summary"]);
         var emailSender = new FakeEmailSender();
@@ -38,6 +43,7 @@ public sealed class ForecastUpdateServiceTests
             new ProviderRegistry([provider]),
             summarizer,
             emailSender,
+            deliveryConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -53,7 +59,9 @@ public sealed class ForecastUpdateServiceTests
     [Fact]
     public async Task Update_does_not_send_when_forecast_changes_but_summary_matches()
     {
-        var stateStore = new DeliveryStateStore(new AppPathsForTests());
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
         var provider = new SequentialForecastProvider(
             [
                 BuildForecast(),
@@ -66,6 +74,7 @@ public sealed class ForecastUpdateServiceTests
             new ProviderRegistry([provider]),
             summarizer,
             emailSender,
+            deliveryConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -81,7 +90,9 @@ public sealed class ForecastUpdateServiceTests
     [Fact]
     public async Task Update_sends_when_forecast_and_summary_change()
     {
-        var stateStore = new DeliveryStateStore(new AppPathsForTests());
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
         var provider = new SequentialForecastProvider(
             [
                 BuildForecast(),
@@ -94,6 +105,7 @@ public sealed class ForecastUpdateServiceTests
             new ProviderRegistry([provider]),
             summarizer,
             emailSender,
+            deliveryConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -109,7 +121,9 @@ public sealed class ForecastUpdateServiceTests
     [Fact]
     public async Task Missing_forecast_notice_sends_after_one_hour()
     {
-        var stateStore = new DeliveryStateStore(new AppPathsForTests());
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
         var provider = new MissingForecastProvider();
         var emailSender = new FakeEmailSender();
         var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
@@ -117,6 +131,7 @@ public sealed class ForecastUpdateServiceTests
             new ProviderRegistry([provider]),
             new FakeSummarizer([]),
             emailSender,
+            deliveryConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -127,6 +142,87 @@ public sealed class ForecastUpdateServiceTests
 
         Assert.Single(emailSender.SentBodies);
         Assert.Contains("still retrying", emailSender.SentBodies[0]);
+    }
+
+    [Fact]
+    public async Task Update_stops_sending_after_daily_report_limit_is_reached()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        await deliveryConfigurationStore.ConfigureAsync(4, CancellationToken.None);
+        var provider = new SequentialForecastProvider(
+            [
+                BuildForecast(weatherSummary: "weather 1"),
+                BuildForecast(weatherSummary: "weather 2"),
+                BuildForecast(weatherSummary: "weather 3"),
+                BuildForecast(weatherSummary: "weather 4"),
+                BuildForecast(weatherSummary: "weather 5"),
+            ]);
+        var summarizer = new FakeSummarizer(["summary 1", "summary 2", "summary 3", "summary 4", "summary 5"]);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([provider]),
+            summarizer,
+            emailSender,
+            deliveryConfigurationStore,
+            stateStore,
+            clock,
+            new ConsoleLog());
+
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        clock.UtcNowValue = clock.UtcNowValue.AddHours(1);
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        clock.UtcNowValue = clock.UtcNowValue.AddHours(1);
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        clock.UtcNowValue = clock.UtcNowValue.AddHours(1);
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        clock.UtcNowValue = clock.UtcNowValue.AddHours(1);
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+
+        Assert.Equal(["summary 1", "summary 2", "summary 3", "summary 4"], emailSender.SentBodies);
+    }
+
+    [Fact]
+    public async Task Update_allows_sending_again_after_24_hour_window_expires()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        await deliveryConfigurationStore.ConfigureAsync(4, CancellationToken.None);
+        var provider = new SequentialForecastProvider(
+            [
+                BuildForecast(weatherSummary: "weather 1"),
+                BuildForecast(weatherSummary: "weather 2"),
+                BuildForecast(weatherSummary: "weather 3"),
+                BuildForecast(weatherSummary: "weather 4"),
+                BuildForecast(weatherSummary: "weather 5"),
+                BuildForecast(weatherSummary: "weather 6"),
+            ]);
+        var summarizer = new FakeSummarizer(["summary 1", "summary 2", "summary 3", "summary 4", "summary 5", "summary 6"]);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([provider]),
+            summarizer,
+            emailSender,
+            deliveryConfigurationStore,
+            stateStore,
+            clock,
+            new ConsoleLog());
+
+        for (var i = 0; i < 4; i++)
+        {
+            await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+            clock.UtcNowValue = clock.UtcNowValue.AddHours(1);
+        }
+
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        clock.UtcNowValue = clock.UtcNowValue.AddHours(21).AddMinutes(1);
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+
+        Assert.Equal(["summary 1", "summary 2", "summary 3", "summary 4", "summary 6"], emailSender.SentBodies);
     }
 
     private static AvalancheForecast BuildForecast(string weatherSummary = "weather summary") =>

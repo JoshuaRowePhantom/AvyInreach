@@ -16,6 +16,7 @@ internal static class CommandParser
         return command switch
         {
             "help" => new HelpCommand(),
+            "delivery" => ParseDelivery(args),
             "garmin" => ParseGarmin(args),
             "smtp" => ParseSmtp(args),
             "regions" => ParseRegions(args),
@@ -116,6 +117,19 @@ internal static class CommandParser
         }
 
         return new UnscheduleCommand(args[1]);
+    }
+
+    private static ParsedCommand ParseDelivery(string[] args)
+    {
+        if (args.Length != 3
+            || !string.Equals(args[1], "reports", StringComparison.OrdinalIgnoreCase)
+            || !int.TryParse(args[2], out var maxReportsPer24Hours)
+            || maxReportsPer24Hours < 1)
+        {
+            throw new CliUsageException("Usage: AvyInReach.exe delivery reports <count>");
+        }
+
+        return new DeliveryConfigureCommand(maxReportsPer24Hours);
     }
 
     private static ParsedCommand ParseSmtp(string[] args)
@@ -238,6 +252,8 @@ internal sealed record RegionsCommand(string? Provider) : ParsedCommand;
 
 internal sealed record GarminConfigureCommand(string InReachAddress, Uri ReplyLink, int MaxMessages) : ParsedCommand;
 
+internal sealed record DeliveryConfigureCommand(int MaxReportsPer24Hours) : ParsedCommand;
+
 internal sealed record SmtpConfigureCommand(SmtpServer Server, string FromAddress) : ParsedCommand;
 
 internal sealed record SummaryCommand(string Provider, string Region) : ParsedCommand;
@@ -267,6 +283,7 @@ internal static class CommandText
 
         Commands:
           AvyInReach.exe help
+          AvyInReach.exe delivery reports <count>
           AvyInReach.exe garmin link <inreach> <reply-url> [messages <count>]
           AvyInReach.exe smtp server <host:port> from <address>
           AvyInReach.exe regions [provider]
@@ -278,6 +295,7 @@ internal static class CommandText
           AvyInReach.exe unschedule <id>
 
         Examples:
+          AvyInReach.exe delivery reports 4
           AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example
           AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example messages 3
           AvyInReach.exe smtp server smtp.example.com:25 from avyinreach@example.com
@@ -289,6 +307,7 @@ internal static class CommandText
 
         Notes:
           - Phase 1 supports only provider 'avalanche-canada'
+          - no recipient receives more than the configured reports per rolling 24 hours (default 4)
           - inreach.garmin.com recipients require a configured Garmin reply link
           - Garmin replies are split into up to the configured number of 160-char messages (default 3)
           - summary prints the generated Copilot summary without sending email
@@ -296,6 +315,7 @@ internal static class CommandText
           - summaries always begin with 'valid to M/d HH:mmTZ'
 
         SMTP settings are stored in %LocalAppData%\AvyInReach\smtp.json.
+        Delivery limits are stored in %LocalAppData%\AvyInReach\delivery.json.
         Garmin reply links are stored in %LocalAppData%\AvyInReach\garmin.json.
         The configure command writes server and from address there.
         JSON defaults remain enableSsl=false and useDefaultCredentials=true unless edited.

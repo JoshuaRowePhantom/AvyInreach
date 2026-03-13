@@ -10,6 +10,8 @@ Phase 1 supports only `avalanche-canada`.
 
 `help`
 
+`delivery reports <count>`
+
 `garmin link <inreach> <reply-url>`
 
 `garmin link <inreach> <reply-url> [messages <count>]`
@@ -40,6 +42,8 @@ If the summary text changed, it sends. If the summary text is identical, it does
 
 `summary` uses the same fetch and Copilot summarization path, but prints the generated line to stdout instead of sending mail.
 
+Before any outbound send, AvyInReach also enforces a per-recipient rolling 24-hour report cap. The default is `4`, and one Garmin multipart delivery still counts as one report.
+
 ## Summary shape
 
 The Copilot prompt asks for a compact ASCII one-line forecast with:
@@ -57,6 +61,7 @@ State is stored in `%LOCALAPPDATA%\AvyInReach\`.
 Files:
 
 - `smtp.json` stores SMTP server and sender configuration
+- `delivery.json` stores the rolling 24-hour report cap
 - `garmin.json` stores Garmin reply links by recipient address
 - `delivery-state.json` stores the last sent summary plus retry/error notification state
 - `schedules.json` stores installed schedule metadata and task names

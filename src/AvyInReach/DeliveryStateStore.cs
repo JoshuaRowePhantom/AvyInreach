@@ -73,6 +73,48 @@ internal sealed class DeliveryStateStore(AppPaths paths)
         }
     }
 
+    public async Task<RecipientDeliveryStateRecord> GetRecipientAsync(
+        string inReachAddress,
+        CancellationToken cancellationToken)
+    {
+        await _lock.WaitAsync(cancellationToken);
+        try
+        {
+            var file = await LoadAsync(cancellationToken);
+            var match = file.Recipients.FirstOrDefault(entry =>
+                string.Equals(entry.InReachAddress, inReachAddress, StringComparison.OrdinalIgnoreCase));
+
+            return match
+                   ?? new RecipientDeliveryStateRecord
+                   {
+                       InReachAddress = inReachAddress,
+                   };
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    public async Task UpsertRecipientAsync(
+        RecipientDeliveryStateRecord record,
+        CancellationToken cancellationToken)
+    {
+        await _lock.WaitAsync(cancellationToken);
+        try
+        {
+            var file = await LoadAsync(cancellationToken);
+            file.Recipients.RemoveAll(entry =>
+                string.Equals(entry.InReachAddress, record.InReachAddress, StringComparison.OrdinalIgnoreCase));
+            file.Recipients.Add(record);
+            await JsonFileStore.WriteAsync(paths.DeliveryStatePath, file, cancellationToken);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
     private Task<DeliveryStateFile> LoadAsync(CancellationToken cancellationToken) =>
         JsonFileStore.ReadAsync(paths.DeliveryStatePath, new DeliveryStateFile(), cancellationToken);
 }
@@ -80,6 +122,8 @@ internal sealed class DeliveryStateStore(AppPaths paths)
 internal sealed class DeliveryStateFile
 {
     public List<DeliveryStateRecord> Entries { get; init; } = [];
+
+    public List<RecipientDeliveryStateRecord> Recipients { get; init; } = [];
 }
 
 internal sealed class DeliveryStateRecord
@@ -107,4 +151,11 @@ internal sealed class DeliveryStateRecord
     public bool ErrorNoticeSent { get; set; }
 
     public string? LastError { get; set; }
+}
+
+internal sealed class RecipientDeliveryStateRecord
+{
+    public string InReachAddress { get; set; } = string.Empty;
+
+    public List<DateTimeOffset> SentReportsUtc { get; set; } = [];
 }

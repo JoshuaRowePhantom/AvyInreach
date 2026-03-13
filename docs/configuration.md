@@ -54,6 +54,20 @@ When you create a schedule, AvyInReach prompts for the Task Scheduler run-as use
 
 Those credentials are passed directly to Task Scheduler for that task registration and are not stored in AvyInReach's local config files.
 
+## Delivery failsafe
+
+AvyInReach enforces a per-recipient rolling 24-hour report limit across all sends, regardless of provider or region.
+
+Configure it with:
+
+```powershell
+.\AvyInReach.exe delivery reports 4
+```
+
+If you do not configure it, the default is `4`.
+
+One outbound report counts as one send even when Garmin splits that report into multiple 160-character reply parts.
+
 Example `smtp.json`:
 
 ```json
@@ -77,6 +91,7 @@ AvyInReach stores its local files in `%LOCALAPPDATA%\AvyInReach\`.
 Files:
 
 - `smtp.json` stores SMTP server and sender configuration
+- `delivery.json` stores the rolling 24-hour report cap, defaulting to 4
 - `garmin.json` stores Garmin reply links by InReach recipient address
 - `delivery-state.json` stores the last sent summary plus retry/error notification state
 - `schedules.json` stores installed schedule metadata and task names

@@ -63,4 +63,13 @@ public sealed class CommandParserTests
         Assert.Equal(4, command.MaxMessages);
     }
 
+    [Fact]
+    public void Delivery_command_parses_report_limit()
+    {
+        var command = Assert.IsType<DeliveryConfigureCommand>(CommandParser.Parse(
+            ["delivery", "reports", "4"]));
+
+        Assert.Equal(4, command.MaxReportsPer24Hours);
+    }
+
 }

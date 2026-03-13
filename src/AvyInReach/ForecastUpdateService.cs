@@ -14,11 +14,13 @@ internal sealed class ForecastUpdateService(
     ProviderRegistry providerRegistry,
     IForecastSummarizer summarizer,
     IEmailSender emailSender,
+    DeliveryConfigurationStore deliveryConfigurationStore,
     DeliveryStateStore stateStore,
     IClock clock,
     ConsoleLog log)
 {
     private static readonly TimeSpan RetryNoticeDelay = TimeSpan.FromHours(1);
+    private static readonly TimeSpan ReportWindow = TimeSpan.FromHours(24);
     private static readonly JsonSerializerOptions FingerprintSerializerOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<string> GenerateSummaryAsync(
@@ -95,22 +97,34 @@ internal sealed class ForecastUpdateService(
 
             log.Info("Generating Copilot summary...");
             var summary = await summarizer.GenerateSummaryAsync(forecast, cancellationToken);
-            state.LastForecastFingerprint = fingerprint;
             if (mode == DeliveryMode.Update
                 && string.Equals(state.LastSummary, summary, StringComparison.Ordinal))
             {
+                state.LastForecastFingerprint = fingerprint;
                 await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
                 log.Info("Summary unchanged; no update sent.");
                 return;
             }
 
             log.Info("Sending summary...");
-            await emailSender.SendAsync(
+            var sent = await TrySendReportAsync(
                 inReachAddress,
                 $"AvyInReach {forecast.Region.DisplayName}",
                 summary,
                 cancellationToken);
+            if (!sent)
+            {
+                if (mode == DeliveryMode.Send)
+                {
+                    throw new InvalidOperationException(
+                        $"24-hour report limit reached for '{inReachAddress}'. No report was sent.");
+                }
 
+                await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
+                return;
+            }
+
+            state.LastForecastFingerprint = fingerprint;
             state.LastSummary = summary;
             state.LastSentUtc = clock.UtcNow;
             await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
@@ -147,9 +161,11 @@ internal sealed class ForecastUpdateService(
         if (!state.MissingForecastNoticeSent && now - state.MissingForecastSinceUtc >= RetryNoticeDelay)
         {
             var body = $"No {provider} forecast published for {regionName} yet; still retrying.";
-            await emailSender.SendAsync(inReachAddress, $"AvyInReach {regionName}", body, cancellationToken);
-            state.MissingForecastNoticeSent = true;
-            log.Warn("Sent one-hour missing-forecast notice.");
+            if (await TrySendReportAsync(inReachAddress, $"AvyInReach {regionName}", body, cancellationToken))
+            {
+                state.MissingForecastNoticeSent = true;
+                log.Warn("Sent one-hour missing-forecast notice.");
+            }
         }
         else
         {
@@ -176,12 +192,41 @@ internal sealed class ForecastUpdateService(
         if (!state.ErrorNoticeSent && now - state.ErrorSinceUtc >= RetryNoticeDelay)
         {
             var body = $"Error checking {provider} forecast for {regionName}; still retrying.";
-            await emailSender.SendAsync(inReachAddress, $"AvyInReach {regionName}", body, cancellationToken);
-            state.ErrorNoticeSent = true;
-            log.Warn("Sent one-hour persistent-error notice.");
+            if (await TrySendReportAsync(inReachAddress, $"AvyInReach {regionName}", body, cancellationToken))
+            {
+                state.ErrorNoticeSent = true;
+                log.Warn("Sent one-hour persistent-error notice.");
+            }
         }
 
         await stateStore.UpsertAsync(state, cancellationToken);
+    }
+
+    private async Task<bool> TrySendReportAsync(
+        string inReachAddress,
+        string subject,
+        string body,
+        CancellationToken cancellationToken)
+    {
+        var configuration = await deliveryConfigurationStore.GetAsync(cancellationToken);
+        var recipientState = await stateStore.GetRecipientAsync(inReachAddress, cancellationToken);
+        var now = clock.UtcNow;
+        recipientState.SentReportsUtc = recipientState.SentReportsUtc
+            .Where(sentAt => now - sentAt < ReportWindow)
+            .OrderBy(sentAt => sentAt)
+            .ToList();
+
+        if (recipientState.SentReportsUtc.Count >= configuration.MaxReportsPer24Hours)
+        {
+            await stateStore.UpsertRecipientAsync(recipientState, cancellationToken);
+            log.Warn($"24-hour report limit reached for '{inReachAddress}'; not sending.");
+            return false;
+        }
+
+        await emailSender.SendAsync(inReachAddress, subject, body, cancellationToken);
+        recipientState.SentReportsUtc.Add(now);
+        await stateStore.UpsertRecipientAsync(recipientState, cancellationToken);
+        return true;
     }
 
     private async Task<AvalancheForecast> GetForecastOrThrowAsync(
