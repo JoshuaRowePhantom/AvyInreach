@@ -56,6 +56,12 @@ Send now:
 .\AvyInReach.exe send somebody@inreach.garmin.com avalanche-canada Glacier
 ```
 
+Preview the generated summary without sending:
+
+```powershell
+.\AvyInReach.exe summary avalanche-canada Glacier
+```
+
 Only send when the final summary changes:
 
 ```powershell

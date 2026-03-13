@@ -10,6 +10,8 @@ Phase 1 supports only `avalanche-canada`.
 
 `regions [provider]`
 
+`summary <provider> <region>`
+
 `send <inreach> <provider> <region>`
 
 `update <inreach> <provider> <region>`
@@ -27,6 +29,8 @@ Phase 1 supports only `avalanche-canada`.
 It generates the final outbound summary text first, then compares that summary to the last summary stored on disk for the `(inreach, provider, region)` tuple.
 
 If the summary text changed, it sends. If the summary text is identical, it does not.
+
+`summary` uses the same fetch and Copilot summarization path, but prints the generated line to stdout instead of sending mail.
 
 ## Summary shape
 

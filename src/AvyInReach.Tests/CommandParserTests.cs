@@ -21,4 +21,14 @@ public sealed class CommandParserTests
 
         Assert.Equal("Coquihalla-Harrison-Fraser-Manning-Sasquatch-Skagit", command.Region);
     }
+
+    [Fact]
+    public void Summary_parses_multi_word_region_without_inreach()
+    {
+        var command = Assert.IsType<SummaryCommand>(CommandParser.Parse(
+            ["summary", "avalanche-canada", "South", "Rockies"]));
+
+        Assert.Equal("avalanche-canada", command.Provider);
+        Assert.Equal("South Rockies", command.Region);
+    }
 }

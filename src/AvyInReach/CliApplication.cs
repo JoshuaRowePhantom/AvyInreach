@@ -56,6 +56,13 @@ internal sealed class CliApplication
                     await HandleRegionsAsync(providerRegistry, regionsCommand.Provider, cancellationToken);
                     return 0;
 
+                case SummaryCommand summaryCommand:
+                    _log.Info(await updateService.GenerateSummaryAsync(
+                        summaryCommand.Provider,
+                        summaryCommand.Region,
+                        cancellationToken));
+                    return 0;
+
                 case SendCommand sendCommand:
                     await updateService.ProcessAsync(
                         DeliveryMode.Send,

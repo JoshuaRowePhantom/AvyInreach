@@ -17,6 +17,7 @@ internal static class CommandParser
         {
             "help" => new HelpCommand(),
             "regions" => ParseRegions(args),
+            "summary" => ParseSummary(args),
             "send" => ParseSend(args),
             "update" => ParseUpdate(args),
             "schedule" => ParseSchedule(args),
@@ -44,6 +45,16 @@ internal static class CommandParser
         }
 
         return new SendCommand(args[1], args[2], JoinRegion(args, 3));
+    }
+
+    private static ParsedCommand ParseSummary(string[] args)
+    {
+        if (args.Length < 3)
+        {
+            throw new CliUsageException("Usage: AvyInReach.exe summary <provider> <region>");
+        }
+
+        return new SummaryCommand(args[1], JoinRegion(args, 2));
     }
 
     private static ParsedCommand ParseUpdate(string[] args)
@@ -142,6 +153,8 @@ internal sealed record HelpCommand : ParsedCommand;
 
 internal sealed record RegionsCommand(string? Provider) : ParsedCommand;
 
+internal sealed record SummaryCommand(string Provider, string Region) : ParsedCommand;
+
 internal sealed record SendCommand(string InReachAddress, string Provider, string Region) : ParsedCommand;
 
 internal sealed record UpdateCommand(string InReachAddress, string Provider, string Region) : ParsedCommand;
@@ -168,6 +181,7 @@ internal static class CommandText
         Commands:
           AvyInReach.exe help
           AvyInReach.exe regions [provider]
+          AvyInReach.exe summary <provider> <region>
           AvyInReach.exe send <inreach> <provider> <region>
           AvyInReach.exe update <inreach> <provider> <region>
           AvyInReach.exe schedule <start> <end> <inreach> <provider> <region>
@@ -176,12 +190,14 @@ internal static class CommandText
 
         Examples:
           AvyInReach.exe regions avalanche-canada
+          AvyInReach.exe summary avalanche-canada Glacier
           AvyInReach.exe send somebody@inreach.garmin.com avalanche-canada Glacier
           AvyInReach.exe update somebody@inreach.garmin.com avalanche-canada "Coquihalla-Harrison-Fraser-Manning-Sasquatch-Skagit"
           AvyInReach.exe schedule 3/14 3/22 somebody@inreach.garmin.com avalanche-canada Glacier
 
         Notes:
           - Phase 1 supports only provider 'avalanche-canada'
+          - summary prints the generated Copilot summary without sending email
           - update sends only when the final generated summary text changes
           - summaries always include 'valid to M/d HH:mmTZ'
 

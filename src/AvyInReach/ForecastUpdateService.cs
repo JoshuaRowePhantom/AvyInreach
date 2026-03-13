@@ -16,6 +16,16 @@ internal sealed class ForecastUpdateService(
 {
     private static readonly TimeSpan RetryNoticeDelay = TimeSpan.FromHours(1);
 
+    public async Task<string> GenerateSummaryAsync(
+        string providerName,
+        string regionName,
+        CancellationToken cancellationToken)
+    {
+        var forecast = await GetForecastOrThrowAsync(providerName, regionName, cancellationToken);
+        log.Info("Generating Copilot summary...");
+        return await summarizer.GenerateSummaryAsync(forecast, cancellationToken);
+    }
+
     public async Task ProcessAsync(
         DeliveryMode mode,
         string inReachAddress,
@@ -149,5 +159,29 @@ internal sealed class ForecastUpdateService(
         }
 
         await stateStore.UpsertAsync(state, cancellationToken);
+    }
+
+    private async Task<AvalancheForecast> GetForecastOrThrowAsync(
+        string providerName,
+        string regionName,
+        CancellationToken cancellationToken)
+    {
+        var provider = providerRegistry.GetByName(providerName);
+        log.Info($"Resolving region '{regionName}' from {provider.Id}...");
+        var region = await provider.ResolveRegionAsync(regionName, cancellationToken);
+        if (region is null)
+        {
+            throw new InvalidOperationException(
+                $"Region '{regionName}' was not found for provider '{provider.Id}'.");
+        }
+
+        log.Info($"Fetching forecast for {region.DisplayName}...");
+        var forecast = await provider.GetForecastAsync(region, cancellationToken);
+        if (forecast is null)
+        {
+            throw new InvalidOperationException($"No forecast was published for '{region.DisplayName}'.");
+        }
+
+        return forecast;
     }
 }
