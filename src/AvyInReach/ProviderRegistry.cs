@@ -13,21 +13,19 @@ internal sealed class ProviderRegistry
 
     public IAvalancheProvider GetByName(string providerName)
     {
-        var normalized = Normalize(providerName);
+        var normalized = ForecastText.NormalizeKey(providerName);
         var provider = _providers.FirstOrDefault(candidate =>
-            candidate.Aliases.Any(alias => Normalize(alias) == normalized));
+            candidate.Aliases.Any(alias => ForecastText.NormalizeKey(alias) == normalized));
 
         if (provider is null)
         {
+            var supportedProviders = string.Join(", ", _providers.Select(candidate => candidate.Id).OrderBy(value => value, StringComparer.OrdinalIgnoreCase));
             throw new InvalidOperationException(
-                $"Provider '{providerName}' is not supported. Phase 1 supports only avalanche-canada.");
+                $"Provider '{providerName}' is not supported. Supported providers: {supportedProviders}.");
         }
 
         return provider;
     }
-
-    private static string Normalize(string value) =>
-        new string(value.Where(ch => char.IsLetterOrDigit(ch)).ToArray()).ToLowerInvariant();
 }
 
 internal interface IAvalancheProvider

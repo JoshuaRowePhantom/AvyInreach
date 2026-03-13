@@ -1,6 +1,6 @@
 # AvyInReach
 
-AvyInReach is a Windows-first CLI for turning Avalanche Canada forecasts into compact Garmin inReach-friendly messages and delivering them automatically.
+AvyInReach is a Windows-first CLI for turning avalanche forecasts into compact Garmin inReach-friendly messages and delivering them automatically.
 
 ## Purpose
 
@@ -14,7 +14,7 @@ The project exists to:
 
 ## Features
 
-- Avalanche Canada forecast support
+- Avalanche Canada and NWAC forecast support
 - GitHub Copilot CLI summarization into a compact ASCII line
 - SMTP delivery for normal recipients
 - Garmin inReach web-reply delivery for `@inreach.garmin.com` recipients
@@ -33,7 +33,9 @@ The project exists to:
 .\AvyInReach.exe recipient configure <address> transport <email|sms|inreach> [summary <count>]
 .\AvyInReach.exe garmin link <inreach> <reply-url> [messages <count>]
 .\AvyInReach.exe regions avalanche-canada
+.\AvyInReach.exe regions nwac
 .\AvyInReach.exe preview <recipient> avalanche-canada <region>
+.\AvyInReach.exe preview <recipient> nwac <region>
 .\AvyInReach.exe send <recipient> avalanche-canada <region>
 .\AvyInReach.exe update <recipient> avalanche-canada <region>
 .\AvyInReach.exe schedule <start> <end> <recipient> avalanche-canada <region>
@@ -41,7 +43,7 @@ The project exists to:
 
 ## Notes
 
-- Phase 1 supports only `avalanche-canada`
+- supported providers are `avalanche-canada` and `nwac`
 - `send` always sends immediately
 - `preview`, `send`, and `update` size summaries from recipient configuration
 - summaries prioritize decision-driving notices and always include sun/cloud, wind, and low/high temperature in `WX`

@@ -166,24 +166,28 @@ List regions:
 
 ```powershell
 .\AvyInReach.exe regions avalanche-canada
+.\AvyInReach.exe regions nwac
 ```
 
 Send now:
 
 ```powershell
 .\AvyInReach.exe send somebody@inreach.garmin.com avalanche-canada Glacier
+.\AvyInReach.exe send somebody@inreach.garmin.com nwac Olympics
 ```
 
 Preview the generated summary without sending:
 
 ```powershell
 .\AvyInReach.exe preview somebody@inreach.garmin.com avalanche-canada Glacier
+.\AvyInReach.exe preview somebody@inreach.garmin.com nwac "Mt Hood"
 ```
 
 Only send when the final summary changes:
 
 ```powershell
 .\AvyInReach.exe update somebody@inreach.garmin.com avalanche-canada Glacier
+.\AvyInReach.exe update somebody@inreach.garmin.com nwac "Snoqualmie Pass"
 ```
 
 ## Retry notifications

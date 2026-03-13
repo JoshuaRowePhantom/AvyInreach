@@ -336,7 +336,7 @@ internal static class CommandText
 {
     public const string HelpText =
         """
-        AvyInReach Phase 1 (Avalanche Canada only)
+        AvyInReach
 
         Commands:
           AvyInReach.exe help
@@ -361,14 +361,16 @@ internal static class CommandText
           AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example messages 3
           AvyInReach.exe smtp server smtp.example.com:25 from avyinreach@example.com
           AvyInReach.exe regions avalanche-canada
+          AvyInReach.exe regions nwac
           AvyInReach.exe preview somebody@inreach.garmin.com avalanche-canada Glacier
+          AvyInReach.exe preview somebody@inreach.garmin.com nwac Olympics
           AvyInReach.exe send somebody@inreach.garmin.com avalanche-canada Glacier
           AvyInReach.exe update somebody@inreach.garmin.com avalanche-canada "Coquihalla-Harrison-Fraser-Manning-Sasquatch-Skagit"
           AvyInReach.exe schedule 3/14 3/22 somebody@inreach.garmin.com avalanche-canada Glacier
           AvyInReach.exe schedule log 20260314091500-abcd
 
         Notes:
-          - Phase 1 supports only provider 'avalanche-canada'
+          - Supported providers: avalanche-canada, nwac
           - update enforces a rolling 24-hour per-recipient report cap (default 4)
           - recipients must be configured before preview/send/update so summary sizing comes from recipient settings
           - inreach.garmin.com recipients require a configured Garmin reply link

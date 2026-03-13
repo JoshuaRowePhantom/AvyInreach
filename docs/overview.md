@@ -1,10 +1,10 @@
 # AvyInReach overview
 
-`AvyInReach` is a Windows-first CLI that reads Avalanche Canada forecasts, asks GitHub Copilot CLI to compress the forecast into an InReach-friendly one-line summary, and sends that summary either by SMTP email or, for Garmin InReach recipients, through Garmin's public reply flow.
+`AvyInReach` is a Windows-first CLI that reads avalanche forecasts, asks GitHub Copilot CLI to compress the forecast into an InReach-friendly one-line summary, and sends that summary either by SMTP email or, for Garmin InReach recipients, through Garmin's public reply flow.
 
 Maintainer: Josh Rowe
 
-Phase 1 supports only `avalanche-canada`.
+Supported providers are `avalanche-canada` and `nwac`.
 
 ## Setup order
 

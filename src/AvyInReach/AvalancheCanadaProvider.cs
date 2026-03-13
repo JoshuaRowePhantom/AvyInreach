@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace AvyInReach;
 
@@ -44,20 +43,20 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IPr
     public async Task<ForecastRegion?> ResolveRegionAsync(string regionName, CancellationToken cancellationToken)
     {
         var regions = await GetRegionsAsync(cancellationToken);
-        var normalizedInput = Normalize(regionName);
+        var normalizedInput = ForecastText.NormalizeKey(regionName);
 
         var directMatch = regions.FirstOrDefault(region =>
-            Normalize(region.DisplayName) == normalizedInput ||
-            Normalize(region.ReportId) == normalizedInput ||
-            Normalize(region.AreaId) == normalizedInput);
+            ForecastText.NormalizeKey(region.DisplayName) == normalizedInput ||
+            ForecastText.NormalizeKey(region.ReportId) == normalizedInput ||
+            ForecastText.NormalizeKey(region.AreaId) == normalizedInput);
         if (directMatch is not null)
         {
             return directMatch;
         }
 
         var containsMatches = regions.Where(region =>
-                Normalize(region.DisplayName).Contains(normalizedInput, StringComparison.Ordinal) ||
-                normalizedInput.Contains(Normalize(region.DisplayName), StringComparison.Ordinal))
+                ForecastText.NormalizeKey(region.DisplayName).Contains(normalizedInput, StringComparison.Ordinal) ||
+                normalizedInput.Contains(ForecastText.NormalizeKey(region.DisplayName), StringComparison.Ordinal))
             .ToList();
         if (containsMatches.Count == 1)
         {
@@ -99,7 +98,7 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IPr
                 problem.Data?.Aspects?.Select(item => item.Value ?? item.Display ?? string.Empty)
                     .Where(value => !string.IsNullOrWhiteSpace(value))
                     .ToList() ?? [],
-                ToPlainText(problem.Comment)))
+                ForecastText.ToPlainText(problem.Comment)))
             .ToList()
             ?? [];
 
@@ -116,15 +115,15 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IPr
                 ParseDangerValue(rating?.Tln?.Rating?.Display),
                 ParseDangerValue(rating?.Alp?.Rating?.Display)),
             problems,
-            ToPlainText(product.Report.Highlights),
+            ForecastText.ToPlainText(product.Report.Highlights),
             GetSummary(product.Report.Summaries, "avalanche-summary"),
             GetSummary(product.Report.Summaries, "snowpack-summary"),
             GetSummary(product.Report.Summaries, "weather-summary"),
-            ToPlainText(product.Report.Message));
+            ForecastText.ToPlainText(product.Report.Message));
     }
 
     private static string GetSummary(IReadOnlyList<SummaryItem>? summaries, string typeValue) =>
-        ToPlainText(
+        ForecastText.ToPlainText(
             summaries?.FirstOrDefault(summary =>
                 string.Equals(summary.Type?.Value, typeValue, StringComparison.OrdinalIgnoreCase))?.Content);
 
@@ -144,7 +143,7 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IPr
         decimal.TryParse(value, out var result) ? result : null;
 
     private static int? ParseLikelihoodValue(string? value) =>
-        Normalize(value ?? string.Empty) switch
+        ForecastText.NormalizeKey(value ?? string.Empty) switch
         {
             "unlikely" => 1,
             "possible" => 2,
@@ -153,27 +152,6 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IPr
             "certain" => 5,
             _ => null,
         };
-
-    private static string ToPlainText(string? html)
-    {
-        if (string.IsNullOrWhiteSpace(html))
-        {
-            return string.Empty;
-        }
-
-        var withLineBreaks = html
-            .Replace("</p>", " ", StringComparison.OrdinalIgnoreCase)
-            .Replace("<br>", " ", StringComparison.OrdinalIgnoreCase)
-            .Replace("<br/>", " ", StringComparison.OrdinalIgnoreCase)
-            .Replace("<br />", " ", StringComparison.OrdinalIgnoreCase);
-
-        var stripped = HtmlTagRegex().Replace(withLineBreaks, " ");
-        stripped = System.Net.WebUtility.HtmlDecode(stripped);
-        return WhitespaceRegex().Replace(stripped, " ").Trim();
-    }
-
-    private static string Normalize(string value) =>
-        new string(value.Where(ch => char.IsLetterOrDigit(ch)).ToArray()).ToLowerInvariant();
 
     private async Task<ForecastRegion?> ResolveRegionWithCopilotAsync(
         string requestedLocation,
@@ -214,8 +192,8 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IPr
             return null;
         }
 
-        var normalizedResponse = Normalize(response);
-        return regions.FirstOrDefault(region => Normalize(region.DisplayName) == normalizedResponse);
+        var normalizedResponse = ForecastText.NormalizeKey(response);
+        return regions.FirstOrDefault(region => ForecastText.NormalizeKey(region.DisplayName) == normalizedResponse);
     }
 
     private static string BuildLocationResolutionPrompt(string requestedLocation, IReadOnlyList<ForecastRegion> regions)
@@ -236,12 +214,6 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IPr
 
         return builder.ToString();
     }
-
-    [GeneratedRegex("<.*?>", RegexOptions.Compiled)]
-    private static partial Regex HtmlTagRegex();
-
-    [GeneratedRegex(@"\s+", RegexOptions.Compiled)]
-    private static partial Regex WhitespaceRegex();
 
     private sealed class MetadataItem
     {

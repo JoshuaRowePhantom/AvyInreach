@@ -40,8 +40,11 @@ internal sealed class CliApplication
                 recipientConfigurationStore,
                 garminConfigurationStore);
             var processRunner = new ProcessRunner();
-            var provider = new AvalancheCanadaProvider(httpClient, processRunner);
-            var providerRegistry = new ProviderRegistry([provider]);
+            var providerRegistry = new ProviderRegistry(
+                [
+                    new AvalancheCanadaProvider(httpClient, processRunner),
+                    new NwacProvider(httpClient, processRunner),
+                ]);
             var summarizer = new CopilotCliSummarizer(processRunner);
             var emailSender = new RoutingEmailSender(
                 new SmtpEmailSender(smtpConfigurationStore),
