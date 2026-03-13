@@ -7,6 +7,13 @@
 - GitHub Copilot CLI installed and already authenticated
 - SMTP access for normal email recipients
 
+## Setup order
+
+1. Configure SMTP so normal recipients can be sent.
+2. Configure the `update` delivery cap if you want something other than the default of `4`.
+3. If you send to `@inreach.garmin.com`, configure a Garmin reply link for that recipient.
+4. If you want automation, install a schedule.
+
 ## SMTP setup
 
 Configure SMTP once with:
@@ -25,6 +32,38 @@ Default JSON values are:
 The `smtp` command updates `server` and `fromAddress`. If you need explicit SMTP auth, edit `smtp.json` manually and add `username` and `password`.
 
 The configured `fromAddress` is also reused as the sender identity when posting Garmin replies through the public inReach reply page.
+
+Example `smtp.json`:
+
+```json
+{
+  "server": {
+    "host": "undead.home.phantom.to",
+    "port": 25
+  },
+  "fromAddress": "avyinreach@phantom.to",
+  "enableSsl": false,
+  "useDefaultCredentials": true,
+  "username": null,
+  "password": null
+}
+```
+
+## Delivery cap
+
+AvyInReach enforces a per-recipient rolling 24-hour report limit for `update`.
+
+Configure it with:
+
+```powershell
+.\AvyInReach.exe delivery reports 4
+```
+
+If you do not configure it, the default is `4`.
+
+One outbound `update` report counts as one send even when Garmin splits that report into multiple 160-character reply parts.
+
+Manual `send` bypasses this failsafe.
 
 ## Garmin InReach setup
 
@@ -48,43 +87,17 @@ Garmin sends replies in chunks of up to 160 characters each.
 
 By default, AvyInReach allows up to 3 Garmin message parts per send. That value is stored in `garmin.json` per recipient and can be increased with the optional `messages <count>` argument.
 
-## Scheduled task credentials
+## Scheduling
+
+Install a 15-minute schedule with:
+
+```powershell
+.\AvyInReach.exe schedule 3/14 3/22 somebody@inreach.garmin.com avalanche-canada Glacier
+```
 
 When you create a schedule, AvyInReach prompts for the Task Scheduler run-as username and password.
 
 Those credentials are passed directly to Task Scheduler for that task registration and are not stored in AvyInReach's local config files.
-
-## Delivery failsafe
-
-AvyInReach enforces a per-recipient rolling 24-hour report limit for `update`.
-
-Configure it with:
-
-```powershell
-.\AvyInReach.exe delivery reports 4
-```
-
-If you do not configure it, the default is `4`.
-
-One outbound `update` report counts as one send even when Garmin splits that report into multiple 160-character reply parts.
-
-Manual `send` bypasses this failsafe.
-
-Example `smtp.json`:
-
-```json
-{
-  "server": {
-    "host": "undead.home.phantom.to",
-    "port": 25
-  },
-  "fromAddress": "avyinreach@phantom.to",
-  "enableSsl": false,
-  "useDefaultCredentials": true,
-  "username": null,
-  "password": null
-}
-```
 
 ## Data storage
 
@@ -132,12 +145,6 @@ Only send when the final summary changes:
 
 ```powershell
 .\AvyInReach.exe update somebody@inreach.garmin.com avalanche-canada Glacier
-```
-
-Install a 15-minute schedule:
-
-```powershell
-.\AvyInReach.exe schedule 3/14 3/22 somebody@inreach.garmin.com avalanche-canada Glacier
 ```
 
 ## Retry notifications
