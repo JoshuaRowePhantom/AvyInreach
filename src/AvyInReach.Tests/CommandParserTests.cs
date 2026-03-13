@@ -48,11 +48,11 @@ public sealed class CommandParserTests
     public void Smtp_command_parses_server_and_from()
     {
         var command = Assert.IsType<SmtpConfigureCommand>(CommandParser.Parse(
-            ["smtp", "server", "undead.home.phantom.to:25", "from", "avyinreach@phantom.to"]));
+            ["smtp", "server", "smtp.example.com:25", "from", "avyinreach@example.com"]));
 
-        Assert.Equal("undead.home.phantom.to", command.Server.Host);
+        Assert.Equal("smtp.example.com", command.Server.Host);
         Assert.Equal(25, command.Server.Port);
-        Assert.Equal("avyinreach@phantom.to", command.FromAddress);
+        Assert.Equal("avyinreach@example.com", command.FromAddress);
     }
 
     [Fact]

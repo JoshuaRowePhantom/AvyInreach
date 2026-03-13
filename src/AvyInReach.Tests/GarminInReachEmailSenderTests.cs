@@ -17,7 +17,7 @@ public sealed class GarminInReachEmailSenderTests
         var paths = new AppPathsForTests();
         var smtpStore = new SmtpConfigurationStore(paths);
         var garminStore = new GarminConfigurationStore(paths);
-        await smtpStore.ConfigureAsync(new SmtpServer("smtp.example.com", 25), "avyinreach@phantom.to", CancellationToken.None);
+        await smtpStore.ConfigureAsync(new SmtpServer("smtp.example.com", 25), "avyinreach@example.com", CancellationToken.None);
         await garminStore.ConfigureAsync("user@inreach.garmin.com", new Uri("https://inreachlink.com/example"), 3, CancellationToken.None);
         var sender = new GarminInReachEmailSender(httpClient, smtpStore, garminStore);
 
@@ -28,7 +28,7 @@ public sealed class GarminInReachEmailSenderTests
         Assert.Equal("https://inreachlink.com/TextMessage/TxtMsg", handler.PostUris[0]);
         Assert.Single(handler.Payloads);
         var payload = handler.Payloads[0];
-        Assert.Equal("avyinreach@phantom.to", payload.GetProperty("ReplyAddress").GetString());
+        Assert.Equal("avyinreach@example.com", payload.GetProperty("ReplyAddress").GetString());
         Assert.Equal("forecast text", payload.GetProperty("ReplyMessage").GetString());
         Assert.Equal("guid-123", payload.GetProperty("Guid").GetString());
         Assert.Equal("797077616", payload.GetProperty("MessageId").GetString());
@@ -42,7 +42,7 @@ public sealed class GarminInReachEmailSenderTests
         var paths = new AppPathsForTests();
         var smtpStore = new SmtpConfigurationStore(paths);
         var garminStore = new GarminConfigurationStore(paths);
-        await smtpStore.ConfigureAsync(new SmtpServer("smtp.example.com", 25), "avyinreach@phantom.to", CancellationToken.None);
+        await smtpStore.ConfigureAsync(new SmtpServer("smtp.example.com", 25), "avyinreach@example.com", CancellationToken.None);
         await garminStore.ConfigureAsync("user@inreach.garmin.com", new Uri("https://inreachlink.com/example"), 3, CancellationToken.None);
         var sender = new GarminInReachEmailSender(httpClient, smtpStore, garminStore);
 
@@ -59,7 +59,7 @@ public sealed class GarminInReachEmailSenderTests
         var paths = new AppPathsForTests();
         var smtpStore = new SmtpConfigurationStore(paths);
         var garminStore = new GarminConfigurationStore(paths);
-        await smtpStore.ConfigureAsync(new SmtpServer("smtp.example.com", 25), "avyinreach@phantom.to", CancellationToken.None);
+        await smtpStore.ConfigureAsync(new SmtpServer("smtp.example.com", 25), "avyinreach@example.com", CancellationToken.None);
         await garminStore.ConfigureAsync("user@inreach.garmin.com", new Uri("https://inreachlink.com/example"), 1, CancellationToken.None);
         var sender = new GarminInReachEmailSender(httpClient, smtpStore, garminStore);
 

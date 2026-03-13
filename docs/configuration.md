@@ -20,7 +20,7 @@
 Configure SMTP once with:
 
 ```powershell
-.\AvyInReach.exe smtp server undead.home.phantom.to:25 from avyinreach@phantom.to
+.\AvyInReach.exe smtp server smtp.example.com:25 from avyinreach@example.com
 ```
 
 This writes `%LOCALAPPDATA%\AvyInReach\smtp.json`.
@@ -39,10 +39,10 @@ Example `smtp.json`:
 ```json
 {
   "server": {
-    "host": "undead.home.phantom.to",
+    "host": "smtp.example.com",
     "port": 25
   },
-  "fromAddress": "avyinreach@phantom.to",
+  "fromAddress": "avyinreach@example.com",
   "enableSsl": false,
   "useDefaultCredentials": true,
   "username": null,

@@ -8,13 +8,13 @@ public sealed class SmtpConfigurationStoreTests
         var paths = new AppPathsForTests();
         var store = new SmtpConfigurationStore(paths);
 
-        await store.ConfigureAsync(new SmtpServer("undead.home.phantom.to", 25), "avyinreach@phantom.to", CancellationToken.None);
+        await store.ConfigureAsync(new SmtpServer("smtp.example.com", 25), "avyinreach@example.com", CancellationToken.None);
 
         var configuration = await store.GetRequiredAsync(CancellationToken.None);
 
-        Assert.Equal("undead.home.phantom.to", configuration.Server!.Host);
+        Assert.Equal("smtp.example.com", configuration.Server!.Host);
         Assert.Equal(25, configuration.Server.Port);
-        Assert.Equal("avyinreach@phantom.to", configuration.FromAddress);
+        Assert.Equal("avyinreach@example.com", configuration.FromAddress);
         Assert.False(configuration.EnableSsl);
         Assert.True(configuration.UseDefaultCredentials);
         Assert.Null(configuration.Username);

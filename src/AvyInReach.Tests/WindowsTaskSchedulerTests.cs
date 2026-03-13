@@ -10,13 +10,13 @@ public sealed class WindowsTaskSchedulerTests
     {
         var runner = new RecordingProcessRunner();
         var scheduler = new WindowsTaskScheduler(runner, new ConsoleLog());
-        var credentials = new ScheduledTaskCredentials("DOMAIN\\jrowe", "secret-password");
+        var credentials = new ScheduledTaskCredentials("DOMAIN\\scheduler-user", "secret-password");
 
         await scheduler.RegisterAsync(BuildRecord(), credentials, CancellationToken.None);
 
         Assert.Equal("schtasks.exe", runner.FileName);
         Assert.Contains("/RU", runner.Arguments);
-        Assert.Contains("DOMAIN\\jrowe", runner.Arguments);
+        Assert.Contains("DOMAIN\\scheduler-user", runner.Arguments);
         Assert.Contains("/RP", runner.Arguments);
         Assert.Contains("secret-password", runner.Arguments);
     }
