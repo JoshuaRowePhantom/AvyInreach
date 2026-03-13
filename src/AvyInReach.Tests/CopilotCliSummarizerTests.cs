@@ -17,6 +17,12 @@ public sealed class CopilotCliSummarizerTests
             "Use abbreviated absolute day names like Fri or Sat. Do not use relative day words like today, tonight, tomorrow, or yesterday.",
             runner.Prompt);
         Assert.Contains(
+            "Prefer the most informative terse weather wording that still fits, including a second day when it adds useful change context.",
+            runner.Prompt);
+        Assert.Contains(
+            "If snowfall is approximate or qualified in the source, preserve that tersely with markers like '~' or 'up to'.",
+            runner.Prompt);
+        Assert.Contains(
             "Problem 1: Wind slab; elevations O/O/O; likelihood 4; size 1-2; aspects ALL; notes notes",
             runner.Prompt);
     }

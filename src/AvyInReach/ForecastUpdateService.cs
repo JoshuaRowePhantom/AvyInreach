@@ -97,10 +97,13 @@ internal sealed class ForecastUpdateService(
 
             log.Info("Generating Copilot summary...");
             var summary = await summarizer.GenerateSummaryAsync(forecast, cancellationToken);
+            var summaryFingerprint = ComputeTextFingerprint(summary);
             if (mode == DeliveryMode.Update
-                && string.Equals(state.LastSummary, summary, StringComparison.Ordinal))
+                && string.Equals(state.LastSummaryFingerprint, summaryFingerprint, StringComparison.Ordinal))
             {
                 state.LastForecastFingerprint = fingerprint;
+                state.LastSummaryFingerprint = summaryFingerprint;
+                state.LastSummary = summary;
                 await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
                 log.Info("Summary unchanged; no update sent.");
                 return;
@@ -130,6 +133,7 @@ internal sealed class ForecastUpdateService(
             }
 
             state.LastForecastFingerprint = fingerprint;
+            state.LastSummaryFingerprint = summaryFingerprint;
             state.LastSummary = summary;
             state.LastSentUtc = clock.UtcNow;
             await stateStore.UpsertAsync(state, [regionName, forecast.Region.DisplayName], cancellationToken);
@@ -303,6 +307,12 @@ internal sealed class ForecastUpdateService(
             FingerprintSerializerOptions);
 
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
+        return Convert.ToHexString(hash);
+    }
+
+    private static string ComputeTextFingerprint(string value)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim()));
         return Convert.ToHexString(hash);
     }
 }

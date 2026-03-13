@@ -75,6 +75,8 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
         builder.AppendLine("- Use ALL only when the provided aspect set is ALL.");
         builder.AppendLine("- If there is no useful notice, omit the notice phrase entirely.");
         builder.AppendLine("- Weather must appear once at the end and must begin with 'WX: '. Keep it terse.");
+        builder.AppendLine("- Prefer the most informative terse weather wording that still fits, including a second day when it adds useful change context.");
+        builder.AppendLine("- If snowfall is approximate or qualified in the source, preserve that tersely with markers like '~' or 'up to'.");
         builder.AppendLine("- Use abbreviated absolute day names like Fri or Sat. Do not use relative day words like today, tonight, tomorrow, or yesterday.");
         builder.AppendLine("- Do not include the zone name, provider name, URLs, explanations, or any extra text.");
         builder.AppendLine("- Do not infer, normalize, or reorder facts beyond the explicit formatting rules above.");

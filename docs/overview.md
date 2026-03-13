@@ -49,9 +49,13 @@ The app installs the task with `schtasks.exe` and configures the task XML so the
 
 `update` does not compare source timestamps or issue dates.
 
-It generates the final outbound summary text first, then compares that summary to the last summary stored on disk for the `(inreach, provider, region)` tuple.
+It first computes a fingerprint from the forecast inputs stored on disk for the `(inreach, provider, region)` tuple.
 
-If the summary text changed, it sends. If the summary text is identical, it does not.
+If the forecast-input fingerprint is unchanged, it does not generate or send a new report.
+
+If the inputs changed, it generates the outbound summary text and compares a separate output fingerprint for that generated summary.
+
+If the generated-summary fingerprint changed, it sends. If the generated-summary fingerprint is identical, it does not.
 
 `summary` uses the same fetch and Copilot summarization path, but prints the generated line to stdout instead of sending mail.
 

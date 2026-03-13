@@ -136,6 +136,8 @@ internal sealed class DeliveryStateRecord
 
     public string? LastForecastFingerprint { get; set; }
 
+    public string? LastSummaryFingerprint { get; set; }
+
     public string? LastSummary { get; set; }
 
     public DateTimeOffset? LastCheckedUtc { get; set; }

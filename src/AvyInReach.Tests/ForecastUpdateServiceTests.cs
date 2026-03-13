@@ -27,6 +27,10 @@ public sealed class ForecastUpdateServiceTests
         Assert.Single(emailSender.SentBodies);
         Assert.Equal("first summary", emailSender.SentBodies[0]);
         Assert.Equal(1, summarizer.CallCount);
+
+        var state = await stateStore.GetAsync("user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        Assert.False(string.IsNullOrWhiteSpace(state.LastForecastFingerprint));
+        Assert.False(string.IsNullOrWhiteSpace(state.LastSummaryFingerprint));
     }
 
     [Fact]
@@ -85,6 +89,38 @@ public sealed class ForecastUpdateServiceTests
         Assert.Equal(2, summarizer.CallCount);
         Assert.Single(emailSender.SentBodies);
         Assert.Equal("same summary", emailSender.SentBodies[0]);
+
+        var state = await stateStore.GetAsync("user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        Assert.False(string.IsNullOrWhiteSpace(state.LastForecastFingerprint));
+        Assert.False(string.IsNullOrWhiteSpace(state.LastSummaryFingerprint));
+    }
+
+    [Fact]
+    public async Task Update_stores_distinct_input_and_output_fingerprints()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var provider = new SequentialForecastProvider([BuildForecast()]);
+        var summarizer = new FakeSummarizer(["preferred second-style summary"]);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([provider]),
+            summarizer,
+            emailSender,
+            deliveryConfigurationStore,
+            stateStore,
+            clock,
+            new ConsoleLog());
+
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+
+        var state = await stateStore.GetAsync("user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        Assert.False(string.IsNullOrWhiteSpace(state.LastForecastFingerprint));
+        Assert.False(string.IsNullOrWhiteSpace(state.LastSummaryFingerprint));
+        Assert.NotEqual(state.LastForecastFingerprint, state.LastSummaryFingerprint);
+        Assert.Equal("preferred second-style summary", state.LastSummary);
     }
 
     [Fact]
