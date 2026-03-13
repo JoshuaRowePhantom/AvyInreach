@@ -29,6 +29,7 @@ The project exists to:
 
 ```powershell
 .\AvyInReach.exe smtp server <host:port> from <address>
+.\AvyInReach.exe copilot model [model-id]
 .\AvyInReach.exe delivery reports <count>
 .\AvyInReach.exe recipient configure <address> transport <email|sms|inreach> [summary <count>]
 .\AvyInReach.exe garmin link <inreach> <reply-url> [messages <count>]
@@ -44,6 +45,7 @@ The project exists to:
 ## Notes
 
 - supported providers are `avalanche-canada` and `nwac`
+- Copilot prompt execution defaults to `gpt-5-mini` and can be changed with `copilot model <model-id>`
 - `send` always sends immediately
 - `preview`, `send`, and `update` size summaries from recipient configuration
 - summaries prioritize decision-driving notices and always include sun/cloud, wind, and low/high temperature in `WX`

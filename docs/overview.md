@@ -17,6 +17,8 @@ Supported providers are `avalanche-canada` and `nwac`.
 
 `help`
 
+`copilot model [model-id]`
+
 `smtp server <host:port> from <address>`
 
 `delivery reports <count>`
@@ -88,10 +90,10 @@ The Copilot prompt asks for a compact ASCII one-line forecast with:
 The app shells out to:
 
 ```powershell
-copilot -p "<prompt>" --allow-all --silent --output-format text --no-color
+copilot -p "<prompt>" --model "<configured-model>" --allow-all --silent --output-format text --no-color
 ```
 
-That means the local machine must already have a working `copilot` executable and login session.
+The default model is `gpt-5-mini`, and `copilot model <model-id>` stores an override in local app config. The local machine must already have a working `copilot` executable and login session.
 
 ## State on disk
 
@@ -101,6 +103,7 @@ Files:
 
 - `smtp.json` stores SMTP server and sender configuration
 - `delivery.json` stores the rolling 24-hour report cap
+- `copilot.json` stores the configured Copilot model id
 - `recipients.json` stores recipient transport and summary budget configuration
 - `garmin.json` stores Garmin reply links by recipient address
 - `delivery-state.json` stores the last sent summary plus retry/error notification state

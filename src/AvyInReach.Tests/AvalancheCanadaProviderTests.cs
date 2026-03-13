@@ -8,7 +8,7 @@ public sealed class AvalancheCanadaProviderTests
     [Fact]
     public async Task ResolveRegionAsync_returns_direct_match_without_copilot()
     {
-        var runner = new FakeProcessRunner("South Columbia");
+        var runner = new FakeCopilotRunner("South Columbia");
         var provider = new AvalancheCanadaProvider(new HttpClient(new MetadataHandler()), runner);
 
         var region = await provider.ResolveRegionAsync("South Columbia", CancellationToken.None);
@@ -21,7 +21,7 @@ public sealed class AvalancheCanadaProviderTests
     [Fact]
     public async Task ResolveRegionAsync_uses_copilot_for_location_lookup()
     {
-        var runner = new FakeProcessRunner("South Columbia");
+        var runner = new FakeCopilotRunner("South Columbia");
         var provider = new AvalancheCanadaProvider(new HttpClient(new MetadataHandler()), runner);
 
         var region = await provider.ResolveRegionAsync("Mount Lequereux", CancellationToken.None);
@@ -34,7 +34,7 @@ public sealed class AvalancheCanadaProviderTests
     [Fact]
     public async Task ResolveRegionAsync_returns_null_when_copilot_response_is_not_a_candidate()
     {
-        var runner = new FakeProcessRunner("Not A Region");
+        var runner = new FakeCopilotRunner("Not A Region");
         var provider = new AvalancheCanadaProvider(new HttpClient(new MetadataHandler()), runner);
 
         var region = await provider.ResolveRegionAsync("Mount Lequereux", CancellationToken.None);
@@ -45,7 +45,7 @@ public sealed class AvalancheCanadaProviderTests
     [Fact]
     public async Task GetForecastAsync_maps_problem_likelihood_to_five_point_scale()
     {
-        var provider = new AvalancheCanadaProvider(new HttpClient(new ProductHandler()), new FakeProcessRunner("unused"));
+        var provider = new AvalancheCanadaProvider(new HttpClient(new ProductHandler()), new FakeCopilotRunner("unused"));
         var region = new ForecastRegion("avalanche-canada", "South Columbia", "south-columbia", "area-1", "https://example.com");
 
         var forecast = await provider.GetForecastAsync(region, CancellationToken.None);
@@ -166,11 +166,11 @@ public sealed class AvalancheCanadaProviderTests
         }
     }
 
-    private sealed class FakeProcessRunner(string output) : IProcessRunner
+    private sealed class FakeCopilotRunner(string output) : ICopilotCliRunner
     {
         public int CallCount { get; private set; }
 
-        public Task<ProcessRunResult> RunAsync(string fileName, IEnumerable<string> arguments, CancellationToken cancellationToken)
+        public Task<ProcessRunResult> RunPromptAsync(string prompt, CancellationToken cancellationToken)
         {
             CallCount++;
             return Task.FromResult(new ProcessRunResult(0, output, string.Empty));

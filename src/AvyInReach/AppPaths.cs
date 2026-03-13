@@ -11,6 +11,7 @@ internal class AppPaths
         RootDirectory = root;
         DeliveryStatePath = Path.Combine(root, "delivery-state.json");
         DeliveryConfigurationPath = Path.Combine(root, "delivery.json");
+        CopilotConfigurationPath = Path.Combine(root, "copilot.json");
         RecipientConfigurationPath = Path.Combine(root, "recipients.json");
         SchedulePath = Path.Combine(root, "schedules.json");
         ScheduleLogDirectory = Path.Combine(root, "schedule-logs");
@@ -23,6 +24,8 @@ internal class AppPaths
     public string DeliveryStatePath { get; }
 
     public string DeliveryConfigurationPath { get; }
+
+    public string CopilotConfigurationPath { get; }
 
     public string RecipientConfigurationPath { get; }
 

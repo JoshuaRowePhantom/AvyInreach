@@ -144,6 +144,7 @@ Files:
 
 - `smtp.json` stores SMTP server and sender configuration
 - `delivery.json` stores the rolling 24-hour report cap, defaulting to 4
+- `copilot.json` stores the configured Copilot model id, defaulting to `gpt-5-mini`
 - `recipients.json` stores recipient transport and summary budget settings
 - `garmin.json` stores Garmin reply links by InReach recipient address
 - `delivery-state.json` stores the last sent summary plus retry/error notification state
@@ -152,13 +153,25 @@ Files:
 
 ## Copilot CLI integration
 
+Show the current configured model:
+
+```powershell
+.\AvyInReach.exe copilot model
+```
+
+Set a different model:
+
+```powershell
+.\AvyInReach.exe copilot model gpt-5-mini
+```
+
 The app shells out to:
 
 ```powershell
-copilot -p "<prompt>" --allow-all --silent --output-format text --no-color
+copilot -p "<prompt>" --model "<configured-model>" --allow-all --silent --output-format text --no-color
 ```
 
-That means the local machine must already have a working `copilot` executable and login session.
+If you never configure it, AvyInReach uses `gpt-5-mini` by default. The local machine must already have a working `copilot` executable and login session.
 
 ## Examples
 

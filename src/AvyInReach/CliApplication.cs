@@ -32,6 +32,7 @@ internal sealed class CliApplication
             var appPaths = new AppPaths();
             var stateStore = new DeliveryStateStore(appPaths);
             var deliveryConfigurationStore = new DeliveryConfigurationStore(appPaths);
+            var copilotConfigurationStore = new CopilotConfigurationStore(appPaths);
             var recipientConfigurationStore = new RecipientConfigurationStore(appPaths);
             var scheduleStore = new ScheduleStore(appPaths);
             var smtpConfigurationStore = new SmtpConfigurationStore(appPaths);
@@ -40,12 +41,13 @@ internal sealed class CliApplication
                 recipientConfigurationStore,
                 garminConfigurationStore);
             var processRunner = new ProcessRunner();
+            var copilotRunner = new CopilotCliRunner(processRunner, copilotConfigurationStore);
             var providerRegistry = new ProviderRegistry(
                 [
-                    new AvalancheCanadaProvider(httpClient, processRunner),
-                    new NwacProvider(httpClient, processRunner),
+                    new AvalancheCanadaProvider(httpClient, copilotRunner),
+                    new NwacProvider(httpClient, copilotRunner),
                 ]);
-            var summarizer = new CopilotCliSummarizer(processRunner);
+            var summarizer = new CopilotCliSummarizer(copilotRunner);
             var emailSender = new RoutingEmailSender(
                 new SmtpEmailSender(smtpConfigurationStore),
                 new GarminInReachEmailSender(httpClient, smtpConfigurationStore, garminConfigurationStore));
@@ -79,6 +81,13 @@ internal sealed class CliApplication
                     await HandleRecipientConfigureAsync(
                         recipientConfigurationStore,
                         recipientConfigureCommand,
+                        cancellationToken);
+                    return 0;
+
+                case CopilotModelCommand copilotModelCommand:
+                    await HandleCopilotModelAsync(
+                        copilotConfigurationStore,
+                        copilotModelCommand,
                         cancellationToken);
                     return 0;
 
@@ -198,6 +207,23 @@ internal sealed class CliApplication
         _log.Info($"Recipient: {settings.RecipientAddress}");
         _log.Info($"Transport: {settings.Transport.ToConfigValue()}");
         _log.Info($"Summary budget: {settings.SummaryCharacterBudget}");
+    }
+
+    private async Task HandleCopilotModelAsync(
+        CopilotConfigurationStore configurationStore,
+        CopilotModelCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command.ModelId))
+        {
+            var configuration = await configurationStore.GetAsync(cancellationToken);
+            _log.Info($"Copilot model: {configuration.Model}");
+            return;
+        }
+
+        var updated = await configurationStore.ConfigureAsync(command.ModelId, cancellationToken);
+        _log.Info("Copilot model saved.");
+        _log.Info($"Model: {updated.Model}");
     }
 
     private async Task HandleDeliveryConfigureAsync(

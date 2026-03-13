@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace AvyInReach;
 
-internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IProcessRunner processRunner) : IAvalancheProvider
+internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, ICopilotCliRunner copilotRunner) : IAvalancheProvider
 {
     private const string MetadataUrl = "https://api.avalanche.ca/forecasts/en/metadata";
     private const string ProductsUrl = "https://api.avalanche.ca/forecasts/en/products";
@@ -164,18 +164,7 @@ internal sealed partial class AvalancheCanadaProvider(HttpClient httpClient, IPr
         }
 
         var prompt = BuildLocationResolutionPrompt(requestedLocation, regions);
-        var result = await processRunner.RunAsync(
-            "copilot",
-            [
-                "-p",
-                prompt,
-                "--allow-all",
-                "--silent",
-                "--output-format",
-                "text",
-                "--no-color",
-            ],
-            cancellationToken);
+        var result = await copilotRunner.RunPromptAsync(prompt, cancellationToken);
 
         if (result.ExitCode != 0)
         {

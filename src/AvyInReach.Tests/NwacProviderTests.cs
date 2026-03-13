@@ -8,7 +8,7 @@ public sealed class NwacProviderTests
     [Fact]
     public async Task ResolveRegionAsync_matches_known_alias_without_copilot()
     {
-        var runner = new FakeProcessRunner("unused");
+        var runner = new FakeCopilotRunner("unused");
         var provider = new NwacProvider(new HttpClient(new NwacHandler()), runner);
 
         var region = await provider.ResolveRegionAsync("Mt. Hood", CancellationToken.None);
@@ -21,7 +21,7 @@ public sealed class NwacProviderTests
     [Fact]
     public async Task ResolveRegionAsync_uses_copilot_for_location_lookup()
     {
-        var runner = new FakeProcessRunner("Olympics");
+        var runner = new FakeCopilotRunner("Olympics");
         var provider = new NwacProvider(new HttpClient(new NwacHandler()), runner);
 
         var region = await provider.ResolveRegionAsync("Hurricane Ridge", CancellationToken.None);
@@ -34,7 +34,7 @@ public sealed class NwacProviderTests
     [Fact]
     public async Task GetForecastAsync_maps_nwac_forecast_and_weather_summary()
     {
-        var provider = new NwacProvider(new HttpClient(new NwacHandler()), new FakeProcessRunner("unused"));
+        var provider = new NwacProvider(new HttpClient(new NwacHandler()), new FakeCopilotRunner("unused"));
         var region = new ForecastRegion("nwac", "Olympics", "olympics", "Olympics", "https://nwac.us/avalanche-forecast/#/olympics");
 
         var forecast = await provider.GetForecastAsync(region, CancellationToken.None);
@@ -55,7 +55,7 @@ public sealed class NwacProviderTests
     [Fact]
     public async Task GetForecastAsync_pages_until_matching_region_is_found()
     {
-        var provider = new NwacProvider(new HttpClient(new PagedNwacHandler()), new FakeProcessRunner("unused"));
+        var provider = new NwacProvider(new HttpClient(new PagedNwacHandler()), new FakeCopilotRunner("unused"));
         var region = new ForecastRegion("nwac", "Stevens Pass", "stevens-pass", "Stevens Pass", "https://nwac.us/avalanche-forecast/#/stevens-pass");
 
         var forecast = await provider.GetForecastAsync(region, CancellationToken.None);
@@ -245,11 +245,11 @@ public sealed class NwacProviderTests
         }
     }
 
-    private sealed class FakeProcessRunner(string output) : IProcessRunner
+    private sealed class FakeCopilotRunner(string output) : ICopilotCliRunner
     {
         public int CallCount { get; private set; }
 
-        public Task<ProcessRunResult> RunAsync(string fileName, IEnumerable<string> arguments, CancellationToken cancellationToken)
+        public Task<ProcessRunResult> RunPromptAsync(string prompt, CancellationToken cancellationToken)
         {
             CallCount++;
             return Task.FromResult(new ProcessRunResult(0, output, string.Empty));

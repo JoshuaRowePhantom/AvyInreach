@@ -17,6 +17,7 @@ internal static class CommandParser
         {
             "help" => new HelpCommand(),
             "delivery" => ParseDelivery(args),
+            "copilot" => ParseCopilot(args),
             "garmin" => ParseGarmin(args),
             "recipient" => ParseRecipient(args),
             "smtp" => ParseSmtp(args),
@@ -137,6 +138,24 @@ internal static class CommandParser
         }
 
         return new DeliveryConfigureCommand(maxReportsPer24Hours);
+    }
+
+    private static ParsedCommand ParseCopilot(string[] args)
+    {
+        if (args.Length == 2
+            && string.Equals(args[1], "model", StringComparison.OrdinalIgnoreCase))
+        {
+            return new CopilotModelCommand(null);
+        }
+
+        if (args.Length == 3
+            && string.Equals(args[1], "model", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(args[2]))
+        {
+            return new CopilotModelCommand(args[2].Trim());
+        }
+
+        throw new CliUsageException("Usage: AvyInReach.exe copilot model [model-id]");
     }
 
     private static ParsedCommand ParseRecipient(string[] args)
@@ -298,6 +317,8 @@ internal abstract record ParsedCommand;
 
 internal sealed record HelpCommand : ParsedCommand;
 
+internal sealed record CopilotModelCommand(string? ModelId) : ParsedCommand;
+
 internal sealed record RegionsCommand(string? Provider) : ParsedCommand;
 
 internal sealed record RecipientConfigureCommand(
@@ -340,6 +361,7 @@ internal static class CommandText
 
         Commands:
           AvyInReach.exe help
+          AvyInReach.exe copilot model [model-id]
           AvyInReach.exe delivery reports <count>
           AvyInReach.exe recipient configure <address> transport <email|sms|inreach> [summary <count>]
           AvyInReach.exe garmin link <inreach> <reply-url> [messages <count>]
@@ -355,6 +377,8 @@ internal static class CommandText
 
         Examples:
           AvyInReach.exe delivery reports 4
+          AvyInReach.exe copilot model
+          AvyInReach.exe copilot model gpt-5-mini
           AvyInReach.exe recipient configure somebody@example.com transport email
           AvyInReach.exe recipient configure somebody@inreach.garmin.com transport inreach summary 480
           AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example
@@ -371,6 +395,7 @@ internal static class CommandText
 
         Notes:
           - Supported providers: avalanche-canada, nwac
+          - Copilot prompt execution defaults to model 'gpt-5-mini' unless overridden with 'copilot model <model-id>'
           - update enforces a rolling 24-hour per-recipient report cap (default 4)
           - recipients must be configured before preview/send/update so summary sizing comes from recipient settings
           - inreach.garmin.com recipients require a configured Garmin reply link
@@ -381,6 +406,7 @@ internal static class CommandText
 
         SMTP settings are stored in %LocalAppData%\AvyInReach\smtp.json.
         Delivery limits are stored in %LocalAppData%\AvyInReach\delivery.json.
+        Copilot model settings are stored in %LocalAppData%\AvyInReach\copilot.json.
         Recipient settings are stored in %LocalAppData%\AvyInReach\recipients.json.
         Garmin reply links are stored in %LocalAppData%\AvyInReach\garmin.json.
         The configure command writes server and from address there.

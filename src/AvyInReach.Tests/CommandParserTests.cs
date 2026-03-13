@@ -54,6 +54,24 @@ public sealed class CommandParserTests
     }
 
     [Fact]
+    public void Copilot_model_command_parses_optional_model_id()
+    {
+        var command = Assert.IsType<CopilotModelCommand>(CommandParser.Parse(
+            ["copilot", "model", "gpt-5-mini"]));
+
+        Assert.Equal("gpt-5-mini", command.ModelId);
+    }
+
+    [Fact]
+    public void Copilot_model_command_allows_reading_current_model()
+    {
+        var command = Assert.IsType<CopilotModelCommand>(CommandParser.Parse(
+            ["copilot", "model"]));
+
+        Assert.Null(command.ModelId);
+    }
+
+    [Fact]
     public void Smtp_command_parses_server_and_from()
     {
         var command = Assert.IsType<SmtpConfigureCommand>(CommandParser.Parse(

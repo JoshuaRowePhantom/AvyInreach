@@ -8,7 +8,7 @@ public sealed class CopilotCliSummarizerTests
     [Fact]
     public async Task GenerateSummaryAsync_includes_likelihood_in_problem_prompt()
     {
-        var runner = new CapturingProcessRunner("valid to 3/13 16:00PDT 2/3/3 Wind slab O/O/O 4 1-2 ALL. WX: light snow.");
+        var runner = new CapturingCopilotRunner("valid to 3/13 16:00PDT 2/3/3 Wind slab O/O/O 4 1-2 ALL. WX: light snow.");
         var summarizer = new CopilotCliSummarizer(runner);
 
         _ = await summarizer.GenerateSummaryAsync(BuildForecast(), DefaultOptions, CancellationToken.None);
@@ -51,7 +51,7 @@ public sealed class CopilotCliSummarizerTests
     [Fact]
     public async Task GenerateSummaryAsync_prefixes_validity_when_copilot_omits_it()
     {
-        var summarizer = new CopilotCliSummarizer(new FakeProcessRunner("2/3/3 Wind slab O/O/O 1-2 ALL. WX: light snow."));
+        var summarizer = new CopilotCliSummarizer(new FakeCopilotRunner("2/3/3 Wind slab O/O/O 1-2 ALL. WX: light snow."));
 
         var summary = await summarizer.GenerateSummaryAsync(BuildForecast(), DefaultOptions, CancellationToken.None);
 
@@ -62,7 +62,7 @@ public sealed class CopilotCliSummarizerTests
     [Fact]
     public async Task GenerateSummaryAsync_moves_validity_to_the_front_when_copilot_puts_it_later()
     {
-        var summarizer = new CopilotCliSummarizer(new FakeProcessRunner("2/3/3 Wind slab O/O/O 1-2 ALL. valid to 3/13 16:00PDT WX: light snow."));
+        var summarizer = new CopilotCliSummarizer(new FakeCopilotRunner("2/3/3 Wind slab O/O/O 1-2 ALL. valid to 3/13 16:00PDT WX: light snow."));
 
         var summary = await summarizer.GenerateSummaryAsync(BuildForecast(), DefaultOptions, CancellationToken.None);
 
@@ -73,7 +73,7 @@ public sealed class CopilotCliSummarizerTests
     [Fact]
     public async Task GenerateSummaryAsync_throws_when_output_exceeds_budget()
     {
-        var summarizer = new CopilotCliSummarizer(new FakeProcessRunner(new string('x', 490)));
+        var summarizer = new CopilotCliSummarizer(new FakeCopilotRunner(new string('x', 490)));
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             summarizer.GenerateSummaryAsync(BuildForecast(), DefaultOptions, CancellationToken.None));
@@ -84,7 +84,7 @@ public sealed class CopilotCliSummarizerTests
     [Fact]
     public async Task GenerateSummaryAsync_includes_current_summary_when_provided()
     {
-        var runner = new CapturingProcessRunner("valid to 3/13 16:00PDT 2/3/3 Wind slab O/O/O 4 1-2 ALL. WX: Fri sun, W 20, TL -9C.");
+        var runner = new CapturingCopilotRunner("valid to 3/13 16:00PDT 2/3/3 Wind slab O/O/O 4 1-2 ALL. WX: Fri sun, W 20, TL -9C.");
         var summarizer = new CopilotCliSummarizer(runner);
         var options = DefaultOptions with { CurrentSummary = "valid to 3/13 16:00PDT 2/3/3 existing summary" };
 
@@ -110,27 +110,21 @@ public sealed class CopilotCliSummarizerTests
             "weather summary",
             "message");
 
-    private sealed class FakeProcessRunner(string output) : IProcessRunner
+    private sealed class FakeCopilotRunner(string output) : ICopilotCliRunner
     {
-        public Task<ProcessRunResult> RunAsync(
-            string fileName,
-            IEnumerable<string> arguments,
-            CancellationToken cancellationToken)
+        public Task<ProcessRunResult> RunPromptAsync(string prompt, CancellationToken cancellationToken)
         {
             return Task.FromResult(new ProcessRunResult(0, output, string.Empty));
         }
     }
 
-    private sealed class CapturingProcessRunner(string output) : IProcessRunner
+    private sealed class CapturingCopilotRunner(string output) : ICopilotCliRunner
     {
         public string Prompt { get; private set; } = string.Empty;
 
-        public Task<ProcessRunResult> RunAsync(
-            string fileName,
-            IEnumerable<string> arguments,
-            CancellationToken cancellationToken)
+        public Task<ProcessRunResult> RunPromptAsync(string prompt, CancellationToken cancellationToken)
         {
-            Prompt = arguments.Skip(1).First();
+            Prompt = prompt;
             return Task.FromResult(new ProcessRunResult(0, output, string.Empty));
         }
     }

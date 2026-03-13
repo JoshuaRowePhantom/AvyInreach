@@ -10,7 +10,7 @@ internal interface IForecastSummarizer
         CancellationToken cancellationToken);
 }
 
-internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IForecastSummarizer
+internal sealed class CopilotCliSummarizer(ICopilotCliRunner copilotRunner) : IForecastSummarizer
 {
     public async Task<string> GenerateSummaryAsync(
         AvalancheForecast forecast,
@@ -20,18 +20,7 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
         var validUntil = ValidityText.Format(forecast.ValidUntil, forecast.TimezoneId);
         var prompt = BuildPrompt(forecast, validUntil, options);
 
-        var result = await processRunner.RunAsync(
-            "copilot",
-            [
-                "-p",
-                prompt,
-                "--allow-all",
-                "--silent",
-                "--output-format",
-                "text",
-                "--no-color",
-            ],
-            cancellationToken);
+        var result = await copilotRunner.RunPromptAsync(prompt, cancellationToken);
 
         if (result.ExitCode != 0)
         {

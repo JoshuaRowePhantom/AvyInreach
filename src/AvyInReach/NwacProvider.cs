@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace AvyInReach;
 
-internal sealed partial class NwacProvider(HttpClient httpClient, IProcessRunner processRunner) : IAvalancheProvider
+internal sealed partial class NwacProvider(HttpClient httpClient, ICopilotCliRunner copilotRunner) : IAvalancheProvider
 {
     private const string ForecastsUrl = "https://nwac.us/api/v2/avalanche-region-forecast";
     private const string WeatherSummaryUrl = "https://nwac.us/weather-forecast-summary/";
@@ -614,18 +614,7 @@ internal sealed partial class NwacProvider(HttpClient httpClient, IProcessRunner
         }
 
         var prompt = BuildLocationResolutionPrompt(requestedLocation, regions);
-        var result = await processRunner.RunAsync(
-            "copilot",
-            [
-                "-p",
-                prompt,
-                "--allow-all",
-                "--silent",
-                "--output-format",
-                "text",
-                "--no-color",
-            ],
-            cancellationToken);
+        var result = await copilotRunner.RunPromptAsync(prompt, cancellationToken);
 
         if (result.ExitCode != 0)
         {
