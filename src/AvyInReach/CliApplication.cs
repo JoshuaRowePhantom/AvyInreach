@@ -295,7 +295,7 @@ internal sealed class CliApplication
             "update",
             command.InReachAddress,
             provider.Id,
-            region.DisplayName);
+            command.Region);
         var taskCredentials = new ScheduledTaskCredentials(
             ReadRequiredLine("Task Scheduler username: "),
             ReadPassword("Task Scheduler password: "));
