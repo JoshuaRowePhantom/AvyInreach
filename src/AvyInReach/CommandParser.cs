@@ -73,6 +73,12 @@ internal static class CommandParser
 
     private static ParsedCommand ParseSchedule(string[] args)
     {
+        if (args.Length == 3
+            && string.Equals(args[1], "log", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ScheduleLogCommand(args[2]);
+        }
+
         if (args.Length < 6)
         {
             throw new CliUsageException("Usage: AvyInReach.exe schedule <start> <end> <recipient> <provider> <region>");
@@ -318,6 +324,8 @@ internal sealed record ScheduleCommand(
     string Provider,
     string Region) : ParsedCommand;
 
+internal sealed record ScheduleLogCommand(string Id) : ParsedCommand;
+
 internal sealed record SchedulesCommand : ParsedCommand;
 
 internal sealed record UnscheduleCommand(string Id) : ParsedCommand;
@@ -341,6 +349,7 @@ internal static class CommandText
           AvyInReach.exe send <recipient> <provider> <region>
           AvyInReach.exe update <recipient> <provider> <region>
           AvyInReach.exe schedule <start> <end> <recipient> <provider> <region>
+          AvyInReach.exe schedule log <id>
           AvyInReach.exe schedules
           AvyInReach.exe unschedule <id>
 
@@ -356,6 +365,7 @@ internal static class CommandText
           AvyInReach.exe send somebody@inreach.garmin.com avalanche-canada Glacier
           AvyInReach.exe update somebody@inreach.garmin.com avalanche-canada "Coquihalla-Harrison-Fraser-Manning-Sasquatch-Skagit"
           AvyInReach.exe schedule 3/14 3/22 somebody@inreach.garmin.com avalanche-canada Glacier
+          AvyInReach.exe schedule log 20260314091500-abcd
 
         Notes:
           - Phase 1 supports only provider 'avalanche-canada'

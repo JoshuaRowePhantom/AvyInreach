@@ -128,6 +128,14 @@ Before installing the task, `schedule` validates that the recipient has the stor
 
 Those credentials are passed directly to Task Scheduler for that task registration and are not stored in AvyInReach's local config files.
 
+Each scheduled run overwrites a per-schedule last-run log file in `%LOCALAPPDATA%\AvyInReach\schedule-logs\`.
+
+View the latest log for a schedule with:
+
+```powershell
+.\AvyInReach.exe schedule log <id>
+```
+
 ## Data storage
 
 AvyInReach stores its local files in `%LOCALAPPDATA%\AvyInReach\`.
@@ -140,6 +148,7 @@ Files:
 - `garmin.json` stores Garmin reply links by InReach recipient address
 - `delivery-state.json` stores the last sent summary plus retry/error notification state
 - `schedules.json` stores installed schedule metadata and task names
+- `schedule-logs\` stores the latest captured stdout/stderr for each schedule run
 
 ## Copilot CLI integration
 

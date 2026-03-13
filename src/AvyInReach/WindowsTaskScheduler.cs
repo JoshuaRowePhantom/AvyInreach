@@ -172,6 +172,17 @@ internal sealed class ScheduledInvocation
         };
     }
 
+    public static ScheduledInvocation ForCurrentProcessWithLog(string logPath, params string[] args)
+    {
+        var baseInvocation = ForCurrentProcess(args);
+        var command = $"{QuoteCmdCommandPart(baseInvocation.ExecutePath)} {baseInvocation.Arguments} > {QuoteCmdCommandPart(logPath)} 2>&1";
+        return new ScheduledInvocation
+        {
+            ExecutePath = "cmd.exe",
+            Arguments = $"/d /c {QuoteCmdCommandPart(command)}",
+        };
+    }
+
     private static string BuildArguments(IEnumerable<string> args) =>
         string.Join(" ", args.Select(QuoteWindowsArgument));
 
@@ -189,4 +200,7 @@ internal sealed class ScheduledInvocation
 
         return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
     }
+
+    private static string QuoteCmdCommandPart(string value) =>
+        "\"" + value.Replace("\"", "\"\"") + "\"";
 }

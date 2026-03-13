@@ -21,6 +21,25 @@ public sealed class WindowsTaskSchedulerTests
         Assert.Contains("secret-password", runner.Arguments);
     }
 
+    [Fact]
+    public void ForCurrentProcessWithLog_wraps_invocation_in_cmd_redirection()
+    {
+        var invocation = ScheduledInvocation.ForCurrentProcessWithLog(
+            @"C:\logs\schedule.log",
+            "update",
+            "user@example.com",
+            "avalanche-canada",
+            "South Rockies");
+
+        Assert.Equal("cmd.exe", invocation.ExecutePath);
+        Assert.Contains("schedule.log", invocation.Arguments);
+        Assert.Contains("2>&1", invocation.Arguments);
+        Assert.Contains("update", invocation.Arguments);
+        Assert.Contains("user@example.com", invocation.Arguments);
+        Assert.Contains("avalanche-canada", invocation.Arguments);
+        Assert.Contains("South Rockies", invocation.Arguments);
+    }
+
     private static ScheduleRecord BuildRecord() =>
         new()
         {

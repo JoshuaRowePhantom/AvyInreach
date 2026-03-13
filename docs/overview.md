@@ -49,6 +49,8 @@ It fails fast if the recipient is missing required recipient configuration, and 
 
 The app installs the task with `schtasks.exe` and configures the task XML so the task expires and self-deletes after the date range closes.
 
+Each schedule also writes its latest stdout/stderr to a per-schedule log file, and `schedule log <id>` prints that last-run log.
+
 ## How `update` decides to send
 
 `update` does not compare source timestamps or issue dates.

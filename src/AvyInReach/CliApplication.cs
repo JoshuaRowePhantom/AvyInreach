@@ -121,10 +121,15 @@ internal sealed class CliApplication
                     await HandleScheduleAsync(
                         providerRegistry,
                         scheduleStore,
+                        appPaths,
                         recipientConfigurationValidator,
                         scheduler,
                         scheduleCommand,
                         cancellationToken);
+                    return 0;
+
+                case ScheduleLogCommand scheduleLogCommand:
+                    await HandleScheduleLogAsync(scheduleStore, scheduleLogCommand.Id, cancellationToken);
                     return 0;
 
                 case SchedulesCommand:
@@ -267,6 +272,7 @@ internal sealed class CliApplication
     private async Task HandleScheduleAsync(
         ProviderRegistry registry,
         ScheduleStore scheduleStore,
+        AppPaths appPaths,
         RecipientConfigurationValidator recipientConfigurationValidator,
         WindowsTaskScheduler scheduler,
         ScheduleCommand command,
@@ -291,7 +297,10 @@ internal sealed class CliApplication
 
         var scheduleId = $"{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..20];
         var taskName = $"AvyInReach-{scheduleId}";
-        var invocation = ScheduledInvocation.ForCurrentProcess(
+        Directory.CreateDirectory(appPaths.ScheduleLogDirectory);
+        var logPath = Path.Combine(appPaths.ScheduleLogDirectory, $"{scheduleId}.log");
+        var invocation = ScheduledInvocation.ForCurrentProcessWithLog(
+            logPath,
             "update",
             command.InReachAddress,
             provider.Id,
@@ -311,6 +320,7 @@ internal sealed class CliApplication
             WindowsTaskName = taskName,
             ExecutePath = invocation.ExecutePath,
             Arguments = invocation.Arguments,
+            LogPath = logPath,
             CreatedUtc = DateTimeOffset.UtcNow,
         };
 
@@ -320,6 +330,26 @@ internal sealed class CliApplication
         _log.Info($"Installed schedule {record.Id}");
         _log.Info($"Task name: {record.WindowsTaskName}");
         _log.Info($"Range: {record.StartDate.ToString("M/d/yyyy", CultureInfo.InvariantCulture)} - {record.EndDate.ToString("M/d/yyyy", CultureInfo.InvariantCulture)}");
+        _log.Info($"Last-run log: {record.LogPath}");
+    }
+
+    private async Task HandleScheduleLogAsync(
+        ScheduleStore scheduleStore,
+        string scheduleId,
+        CancellationToken cancellationToken)
+    {
+        var schedule = await scheduleStore.GetByIdAsync(scheduleId, cancellationToken);
+        if (schedule is null)
+        {
+            throw new InvalidOperationException($"Schedule '{scheduleId}' was not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(schedule.LogPath) || !File.Exists(schedule.LogPath))
+        {
+            throw new InvalidOperationException($"No run log is available for schedule '{scheduleId}' yet.");
+        }
+
+        _log.Info(await File.ReadAllTextAsync(schedule.LogPath, cancellationToken));
     }
 
     private static string ReadRequiredLine(string prompt)
@@ -347,7 +377,7 @@ internal sealed class CliApplication
         {
             _log.Info(
                 $"{schedule.Id} | {schedule.Provider} | {schedule.Region} | {schedule.InReachAddress} | " +
-                $"{schedule.StartDate:M/d/yyyy}-{schedule.EndDate:M/d/yyyy} | {schedule.WindowsTaskName}");
+                $"{schedule.StartDate:M/d/yyyy}-{schedule.EndDate:M/d/yyyy} | {schedule.WindowsTaskName} | {schedule.LogPath}");
         }
     }
 

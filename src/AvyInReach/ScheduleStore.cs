@@ -97,5 +97,7 @@ internal sealed class ScheduleRecord
 
     public string Arguments { get; init; } = string.Empty;
 
+    public string LogPath { get; init; } = string.Empty;
+
     public DateTimeOffset CreatedUtc { get; init; }
 }

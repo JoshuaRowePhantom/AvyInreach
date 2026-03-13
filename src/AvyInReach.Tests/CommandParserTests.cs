@@ -14,6 +14,15 @@ public sealed class CommandParserTests
     }
 
     [Fact]
+    public void Schedule_log_parses_id()
+    {
+        var command = Assert.IsType<ScheduleLogCommand>(CommandParser.Parse(
+            ["schedule", "log", "20260314091500-abcd"]));
+
+        Assert.Equal("20260314091500-abcd", command.Id);
+    }
+
+    [Fact]
     public void Update_parses_multi_word_region()
     {
         var command = Assert.IsType<UpdateCommand>(CommandParser.Parse(
