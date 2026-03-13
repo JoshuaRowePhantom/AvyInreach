@@ -44,7 +44,7 @@ public sealed class NwacProviderTests
         Assert.Equal(2, forecast.CurrentDangerRatings.BelowTreeline);
         Assert.Equal(3, forecast.CurrentDangerRatings.Treeline);
         Assert.Equal(4, forecast.CurrentDangerRatings.Alpine);
-        Assert.Equal("5000 temps 27 / 19 F; 25 / 18 F. ridgeline winds W 0-10 mph; W 10-20 mph; WNW 5-15 mph; WNW 10-20 mph. forecast Scattered light snow showers; Partly cloudy. snow level 1000 ft; 0 ft; 0 ft; 0 ft", forecast.WeatherSummary);
+        Assert.Equal("Sat temps 25 / 18 F; winds WNW 5-15 mph; WNW 10-20 mph; weather Partly cloudy. Fri Night temps 27 / 19 F; winds W 0-10 mph; W 10-20 mph; weather Scattered light snow showers", forecast.WeatherSummary);
         Assert.Equal("Special statement.", forecast.Message);
         Assert.Equal(2, forecast.Problems.Count);
         Assert.Equal("Wind Slab", forecast.Problems[0].Name);
@@ -192,6 +192,19 @@ public sealed class NwacProviderTests
                               by Robert Hahn
                       </div>
                       <table class="nac-html-table nac-table">
+                        <thead>
+                          <tr>
+                            <th rowspan="2" class="zone-name">Olympics</th>
+                            <th colspan="2">Friday Night</th>
+                            <th colspan="2">Saturday</th>
+                          </tr>
+                          <tr>
+                            <th>Evening</th>
+                            <th>Overnight</th>
+                            <th>Morning</th>
+                            <th>Afternoon</th>
+                          </tr>
+                        </thead>
                         <tbody>
                           <tr>
                             <th>5000' Temperatures (Max / Min)</th>

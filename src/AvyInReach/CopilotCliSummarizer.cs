@@ -87,7 +87,9 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
         builder.AppendLine("- Use the notice only for decision-driving statements that matter for travel choices, prioritizing recent avalanche activity, unusually serious hazards, and notable weak-layer concerns from any forecast section.");
         builder.AppendLine("- If there is no useful decision-driving notice that fits, omit the notice phrase entirely.");
         builder.AppendLine("- Weather must appear once at the end and must begin with 'WX: '. Weather must always include sun/cloud, wind, and low/high temperature in terse form.");
-        builder.AppendLine("- Prefer the most informative terse weather wording that still fits, including a second day when it adds useful change context after the required sun/cloud, wind, and low/high temperature fields are present.");
+        builder.AppendLine("- In WX, prioritize the main ski day covered by the bulletin. If the bulletin is issued later in the day, treat the next daytime period as primary.");
+        builder.AppendLine("- After the main ski-day forecast, prefer previous 24-hour snow or recent storm snow information from the source material before secondary forecast periods.");
+        builder.AppendLine("- Prefer the most informative terse weather wording that still fits, including a second day only when it adds useful change context after the primary ski-day forecast and recent snow context are covered.");
         builder.AppendLine("- If snowfall is approximate or qualified in the source, preserve that tersely with markers like '~' or 'up to'.");
         builder.AppendLine("- Prioritize fitting the required structure, the listed problems, any decision-driving notice, and required weather fields within the configured character budget.");
         builder.AppendLine("- Use abbreviated absolute day names like Fri or Sat. Do not use relative day words like today, tonight, tomorrow, or yesterday.");

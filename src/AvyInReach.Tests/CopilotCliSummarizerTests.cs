@@ -23,6 +23,12 @@ public sealed class CopilotCliSummarizerTests
             "Weather must always include sun/cloud, wind, and low/high temperature in terse form.",
             runner.Prompt);
         Assert.Contains(
+            "In WX, prioritize the main ski day covered by the bulletin. If the bulletin is issued later in the day, treat the next daytime period as primary.",
+            runner.Prompt);
+        Assert.Contains(
+            "After the main ski-day forecast, prefer previous 24-hour snow or recent storm snow information from the source material before secondary forecast periods.",
+            runner.Prompt);
+        Assert.Contains(
             "If snowfall is approximate or qualified in the source, preserve that tersely with markers like '~' or 'up to'.",
             runner.Prompt);
         Assert.Contains(

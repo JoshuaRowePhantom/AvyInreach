@@ -331,6 +331,34 @@ internal sealed partial class NwacProvider(HttpClient httpClient, IProcessRunner
 
     private static string ParseWeatherSummary(string html)
     {
+        var issuedAt = TryParseIssuedAt(html);
+        var columnGroups = ParseColumnGroups(html);
+        if (columnGroups.Count > 0)
+        {
+            var groupedRows = TableRowRegex().Matches(html)
+                .Select(match => ParseGroupedTableRow(match.Value, columnGroups))
+                .Where(row => row is not null)
+                .Cast<GroupedTableRow>()
+                .ToList();
+
+            var primaryGroup = SelectPrimaryGroup(columnGroups, issuedAt);
+            var alternateGroup = columnGroups
+                .Select(group => group.Label)
+                .FirstOrDefault(label => !string.Equals(label, primaryGroup, StringComparison.OrdinalIgnoreCase));
+
+            var groupedParts = new List<string>();
+            AddGroupedWeatherSummary(groupedParts, groupedRows, primaryGroup);
+            if (!string.IsNullOrWhiteSpace(alternateGroup))
+            {
+                AddGroupedWeatherSummary(groupedParts, groupedRows, alternateGroup!);
+            }
+
+            if (groupedParts.Count > 0)
+            {
+                return string.Join(". ", groupedParts);
+            }
+        }
+
         var rows = TableRowRegex().Matches(html)
             .Select(match => ParseTableRow(match.Value))
             .Where(row => row is not null)
@@ -363,6 +391,196 @@ internal sealed partial class NwacProvider(HttpClient httpClient, IProcessRunner
 
     private static string FormatValues(IReadOnlyList<string> values) =>
         string.Join("; ", values.Select(value => value.Trim().TrimEnd('.')));
+
+    private static IReadOnlyList<ColumnGroup> ParseColumnGroups(string html)
+    {
+        var theadMatch = TableHeadRegex().Match(html);
+        if (!theadMatch.Success)
+        {
+            return [];
+        }
+
+        var headerRows = TableRowRegex().Matches(theadMatch.Groups["value"].Value);
+        if (headerRows.Count == 0)
+        {
+            return [];
+        }
+
+        var groups = new List<ColumnGroup>();
+        var headerCells = TableHeaderCellWithAttributesRegex().Matches(headerRows[0].Value);
+        foreach (Match cell in headerCells.Cast<Match>().Skip(1))
+        {
+            var label = ForecastText.ToPlainText(cell.Groups["value"].Value);
+            var width = ParseSpan(cell.Groups["attributes"].Value, "colspan");
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                continue;
+            }
+
+            groups.Add(new ColumnGroup(label, Math.Max(width, 1)));
+        }
+
+        return groups;
+    }
+
+    private static GroupedTableRow? ParseGroupedTableRow(string rowHtml, IReadOnlyList<ColumnGroup> groups)
+    {
+        var headerMatch = TableHeaderCellRegex().Match(rowHtml);
+        if (!headerMatch.Success)
+        {
+            return null;
+        }
+
+        var header = ForecastText.ToPlainText(headerMatch.Groups["value"].Value);
+        var cells = TableValueCellWithAttributesRegex().Matches(rowHtml)
+            .Select(match => new TableCellValue(
+                ForecastText.ToPlainText(match.Groups["value"].Value),
+                Math.Max(ParseSpan(match.Groups["attributes"].Value, "colspan"), 1)))
+            .Where(cell => !string.IsNullOrWhiteSpace(cell.Value))
+            .ToList();
+        if (string.IsNullOrWhiteSpace(header) || cells.Count == 0)
+        {
+            return null;
+        }
+
+        var valuesByGroup = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var groupIndex = 0;
+        var spanWithinGroup = 0;
+        foreach (var cell in cells)
+        {
+            var remainingSpan = cell.ColSpan;
+            while (remainingSpan > 0 && groupIndex < groups.Count)
+            {
+                var group = groups[groupIndex];
+                valuesByGroup.TryAdd(group.Label, []);
+                valuesByGroup[group.Label].Add(cell.Value);
+
+                var available = group.Width - spanWithinGroup;
+                var consumed = Math.Min(remainingSpan, available);
+                remainingSpan -= consumed;
+                spanWithinGroup += consumed;
+
+                if (spanWithinGroup >= group.Width)
+                {
+                    groupIndex++;
+                    spanWithinGroup = 0;
+                }
+            }
+        }
+
+        return valuesByGroup.Count == 0
+            ? null
+            : new GroupedTableRow(header, valuesByGroup);
+    }
+
+    private static void AddGroupedWeatherSummary(
+        List<string> parts,
+        IReadOnlyList<GroupedTableRow> rows,
+        string groupLabel)
+    {
+        var label = AbbreviateGroupLabel(groupLabel);
+        var groupParts = new List<string>();
+
+        if (TryGetGroupValues(rows, "5000' Temperatures (Max / Min)", groupLabel, out var temperatures))
+        {
+            groupParts.Add($"temps {FormatValues(temperatures)}");
+        }
+
+        if (TryGetGroupValues(rows, "Ridgeline Winds", groupLabel, out var winds))
+        {
+            groupParts.Add($"winds {FormatValues(winds)}");
+        }
+
+        if (TryGetGroupValues(rows, "Weather Forecast", groupLabel, out var forecasts))
+        {
+            groupParts.Add($"weather {FormatValues(forecasts)}");
+        }
+
+        var recentSnowValues = rows
+            .Where(row => row.Header.StartsWith("Precipitation", StringComparison.OrdinalIgnoreCase)
+                && row.ValuesByGroup.TryGetValue(groupLabel, out _))
+            .SelectMany(row => row.ValuesByGroup[groupLabel])
+            .ToList();
+        if (recentSnowValues.Count > 0)
+        {
+            groupParts.Add($"precip {FormatValues(recentSnowValues)}");
+        }
+
+        if (groupParts.Count > 0)
+        {
+            parts.Add($"{label} {string.Join("; ", groupParts)}");
+        }
+    }
+
+    private static bool TryGetGroupValues(
+        IReadOnlyList<GroupedTableRow> rows,
+        string header,
+        string groupLabel,
+        out IReadOnlyList<string> values)
+    {
+        var row = rows.FirstOrDefault(candidate => string.Equals(candidate.Header, header, StringComparison.OrdinalIgnoreCase));
+        if (row is not null && row.ValuesByGroup.TryGetValue(groupLabel, out var matchedValues) && matchedValues.Count > 0)
+        {
+            values = matchedValues;
+            return true;
+        }
+
+        values = [];
+        return false;
+    }
+
+    private static string SelectPrimaryGroup(IReadOnlyList<ColumnGroup> groups, DateTimeOffset? issuedAt)
+    {
+        if (groups.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        if (issuedAt is null)
+        {
+            return groups[0].Label;
+        }
+
+        var issuedDay = issuedAt.Value.DayOfWeek;
+        var nextDayGroup = groups.FirstOrDefault(group =>
+            TryExtractDayOfWeek(group.Label, out var dayOfWeek) && dayOfWeek != issuedDay);
+        return nextDayGroup?.Label ?? groups[0].Label;
+    }
+
+    private static bool TryExtractDayOfWeek(string label, out DayOfWeek dayOfWeek)
+    {
+        foreach (var value in Enum.GetValues<DayOfWeek>())
+        {
+            if (label.Contains(value.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                dayOfWeek = value;
+                return true;
+            }
+        }
+
+        dayOfWeek = default;
+        return false;
+    }
+
+    private static string AbbreviateGroupLabel(string label)
+    {
+        foreach (var day in Enum.GetValues<DayOfWeek>())
+        {
+            if (label.Contains(day.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                var abbreviated = day.ToString()[..3];
+                return Regex.Replace(label, day.ToString(), abbreviated, RegexOptions.IgnoreCase).Trim();
+            }
+        }
+
+        return label.Trim();
+    }
+
+    private static int ParseSpan(string attributes, string name)
+    {
+        var match = Regex.Match(attributes, $@"\b{name}\s*=\s*[""']?(?<value>\d+)", RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups["value"].Value, out var parsed) ? parsed : 1;
+    }
 
     private static TableRow? ParseTableRow(string rowHtml)
     {
@@ -472,15 +690,30 @@ internal sealed partial class NwacProvider(HttpClient httpClient, IProcessRunner
     [GeneratedRegex(@"<tr>(?<value>.*?)</tr>", RegexOptions.Singleline | RegexOptions.Compiled)]
     private static partial Regex TableRowRegex();
 
+    [GeneratedRegex(@"<thead[^>]*>(?<value>.*?)</thead>", RegexOptions.Singleline | RegexOptions.Compiled)]
+    private static partial Regex TableHeadRegex();
+
     [GeneratedRegex(@"<th[^>]*>(?<value>.*?)</th>", RegexOptions.Singleline | RegexOptions.Compiled)]
     private static partial Regex TableHeaderCellRegex();
+
+    [GeneratedRegex(@"<th(?<attributes>[^>]*)>(?<value>.*?)</th>", RegexOptions.Singleline | RegexOptions.Compiled)]
+    private static partial Regex TableHeaderCellWithAttributesRegex();
 
     [GeneratedRegex(@"<td[^>]*>(?<value>.*?)</td>", RegexOptions.Singleline | RegexOptions.Compiled)]
     private static partial Regex TableValueCellRegex();
 
+    [GeneratedRegex(@"<td(?<attributes>[^>]*)>(?<value>.*?)</td>", RegexOptions.Singleline | RegexOptions.Compiled)]
+    private static partial Regex TableValueCellWithAttributesRegex();
+
     private sealed record NwacRegionDefinition(string ReportId, string DisplayName, string WeatherZone, IReadOnlyList<string> Aliases);
 
+    private sealed record ColumnGroup(string Label, int Width);
+
     private sealed record TableRow(string Header, IReadOnlyList<string> Values);
+
+    private sealed record GroupedTableRow(string Header, IReadOnlyDictionary<string, List<string>> ValuesByGroup);
+
+    private sealed record TableCellValue(string Value, int ColSpan);
 
     private sealed class ForecastCollection
     {
