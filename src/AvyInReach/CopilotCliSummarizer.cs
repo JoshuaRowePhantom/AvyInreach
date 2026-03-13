@@ -18,7 +18,7 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
         CancellationToken cancellationToken)
     {
         var validUntil = ValidityText.Format(forecast.ValidUntil, forecast.TimezoneId);
-        var prompt = BuildPrompt(forecast, validUntil);
+        var prompt = BuildPrompt(forecast, validUntil, options);
 
         var result = await processRunner.RunAsync(
             "copilot",
@@ -45,10 +45,11 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
             throw new InvalidOperationException("Copilot returned an empty summary.");
         }
 
+        summary = summary.Replace(Environment.NewLine, " ").Trim();
         var validPrefix = $"valid to {validUntil}";
         if (summary.StartsWith(validPrefix, StringComparison.Ordinal))
         {
-            return summary.Replace(Environment.NewLine, " ").Trim();
+            return ValidateSummaryLength(summary, options);
         }
 
         if (summary.Contains(validPrefix, StringComparison.Ordinal))
@@ -60,15 +61,18 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
             summary = $"{validPrefix} {summary.Trim()}";
         }
 
-        return summary.Replace(Environment.NewLine, " ").Trim();
+        return ValidateSummaryLength(summary.Replace(Environment.NewLine, " ").Trim(), options);
     }
 
-    private static string BuildPrompt(AvalancheForecast forecast, string validUntil)
+    private static string BuildPrompt(
+        AvalancheForecast forecast,
+        string validUntil,
+        SummaryGenerationOptions options)
     {
         var builder = new StringBuilder();
         builder.AppendLine("You format avalanche forecasts for a Garmin InReach message.");
         builder.AppendLine("Return exactly one ASCII line. No bullets. No markdown. No quotes.");
-        builder.AppendLine("Keep it under 320 characters if possible.");
+        builder.AppendLine($"Keep it within {options.SummaryCharacterBudget} ASCII characters.");
         builder.AppendLine("Output must be deterministic: the same input must produce the same wording and field order.");
         builder.AppendLine("Use this exact structure:");
         builder.AppendLine($"valid to {validUntil} <danger> <problem 1>. <problem 2>. <brief notice>. WX: <weather>");
@@ -79,13 +83,18 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
         builder.AppendLine("- Format each problem exactly as: <name> <O/X for below/treeline/alpine> <likelihood 1-5> <size range> <aspect set>.");
         builder.AppendLine("- Use the problem names, presence values, likelihood values, size ranges, and aspect sets exactly as provided below. Do not paraphrase them.");
         builder.AppendLine("- Use ALL only when the provided aspect set is ALL.");
-        builder.AppendLine("- If there is no useful notice, omit the notice phrase entirely.");
-        builder.AppendLine("- Weather must appear once at the end and must begin with 'WX: '. Keep it terse.");
-        builder.AppendLine("- Prefer the most informative terse weather wording that still fits, including a second day when it adds useful change context.");
+        builder.AppendLine("- Use the notice only for decision-driving statements that matter for travel choices, prioritizing recent avalanche activity, unusually serious hazards, and notable weak-layer concerns from any forecast section.");
+        builder.AppendLine("- If there is no useful decision-driving notice that fits, omit the notice phrase entirely.");
+        builder.AppendLine("- Weather must appear once at the end and must begin with 'WX: '. Weather must always include sun/cloud, wind, and temperature in terse form.");
+        builder.AppendLine("- Prefer the most informative terse weather wording that still fits, including a second day when it adds useful change context after the required sun/cloud, wind, and temperature fields are present.");
         builder.AppendLine("- If snowfall is approximate or qualified in the source, preserve that tersely with markers like '~' or 'up to'.");
+        builder.AppendLine("- Prioritize fitting the required structure, the listed problems, any decision-driving notice, and required weather fields within the configured character budget.");
         builder.AppendLine("- Use abbreviated absolute day names like Fri or Sat. Do not use relative day words like today, tonight, tomorrow, or yesterday.");
         builder.AppendLine("- Do not include the zone name, provider name, URLs, explanations, or any extra text.");
         builder.AppendLine("- Do not infer, normalize, or reorder facts beyond the explicit formatting rules above.");
+        builder.AppendLine($"Recipient: {options.RecipientAddress}");
+        builder.AppendLine($"Transport: {options.Transport.ToConfigValue()}");
+        builder.AppendLine($"Character budget: {options.SummaryCharacterBudget}");
         builder.AppendLine();
         builder.AppendLine($"Zone: {forecast.Region.DisplayName}");
         builder.AppendLine($"Danger: {forecast.CurrentDangerRatings.ToCompactString()}");
@@ -105,6 +114,17 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
 
         builder.AppendLine($"Forecast URL: {forecast.ForecastUrl}");
         return builder.ToString();
+    }
+
+    private static string ValidateSummaryLength(string summary, SummaryGenerationOptions options)
+    {
+        if (summary.Length > options.SummaryCharacterBudget)
+        {
+            throw new InvalidOperationException(
+                $"Copilot returned {summary.Length} characters for '{options.RecipientAddress}', exceeding the configured summary budget of {options.SummaryCharacterBudget}.");
+        }
+
+        return summary;
     }
 }
 

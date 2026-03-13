@@ -20,10 +20,16 @@ public sealed class CopilotCliSummarizerTests
             "Use abbreviated absolute day names like Fri or Sat. Do not use relative day words like today, tonight, tomorrow, or yesterday.",
             runner.Prompt);
         Assert.Contains(
-            "Prefer the most informative terse weather wording that still fits, including a second day when it adds useful change context.",
+            "Weather must always include sun/cloud, wind, and temperature in terse form.",
             runner.Prompt);
         Assert.Contains(
             "If snowfall is approximate or qualified in the source, preserve that tersely with markers like '~' or 'up to'.",
+            runner.Prompt);
+        Assert.Contains(
+            "Use the notice only for decision-driving statements that matter for travel choices, prioritizing recent avalanche activity, unusually serious hazards, and notable weak-layer concerns from any forecast section.",
+            runner.Prompt);
+        Assert.Contains(
+            "Character budget: 480",
             runner.Prompt);
         Assert.Contains(
             "Problem 1: Wind slab; elevations O/O/O; likelihood 4; size 1-2; aspects ALL; notes notes",
@@ -50,6 +56,17 @@ public sealed class CopilotCliSummarizerTests
 
         Assert.StartsWith("valid to 3/13 16:00PDT ", summary);
         Assert.DoesNotContain(". valid to 3/13 16:00PDT", summary);
+    }
+
+    [Fact]
+    public async Task GenerateSummaryAsync_throws_when_output_exceeds_budget()
+    {
+        var summarizer = new CopilotCliSummarizer(new FakeProcessRunner(new string('x', 490)));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            summarizer.GenerateSummaryAsync(BuildForecast(), DefaultOptions, CancellationToken.None));
+
+        Assert.Contains("configured summary budget of 480", ex.Message);
     }
 
     private static AvalancheForecast BuildForecast() =>

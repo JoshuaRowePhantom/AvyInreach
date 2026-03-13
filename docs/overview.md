@@ -75,8 +75,8 @@ The Copilot prompt asks for a compact ASCII one-line forecast with:
 
 - danger as `below/treeline/alpine`
 - up to two avalanche problems with presence, size, and aspects
-- terse weather
-- a very brief notice when highlights/messages matter
+- weather that always includes sun/cloud, wind, and temperature
+- a very brief decision-driving notice when recent avalanche activity, serious hazards, or weak-layer concerns matter
 - the exact suffix `valid to M/d HH:mmTZ`
 
 ## Copilot CLI integration
