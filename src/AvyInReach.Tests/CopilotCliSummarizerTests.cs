@@ -29,6 +29,9 @@ public sealed class CopilotCliSummarizerTests
             "Use the notice only for decision-driving statements that matter for travel choices, prioritizing recent avalanche activity, unusually serious hazards, and notable weak-layer concerns from any forecast section.",
             runner.Prompt);
         Assert.Contains(
+            "If a current summary is provided below and it still accurately presents the same forecast information within the required structure and budget, return that exact current summary byte-for-byte.",
+            runner.Prompt);
+        Assert.Contains(
             "Character budget: 480",
             runner.Prompt);
         Assert.Contains(
@@ -67,6 +70,18 @@ public sealed class CopilotCliSummarizerTests
             summarizer.GenerateSummaryAsync(BuildForecast(), DefaultOptions, CancellationToken.None));
 
         Assert.Contains("configured summary budget of 480", ex.Message);
+    }
+
+    [Fact]
+    public async Task GenerateSummaryAsync_includes_current_summary_when_provided()
+    {
+        var runner = new CapturingProcessRunner("valid to 3/13 16:00PDT 2/3/3 Wind slab O/O/O 4 1-2 ALL. WX: Fri sun, W 20, TL -9C.");
+        var summarizer = new CopilotCliSummarizer(runner);
+        var options = DefaultOptions with { CurrentSummary = "valid to 3/13 16:00PDT 2/3/3 existing summary" };
+
+        _ = await summarizer.GenerateSummaryAsync(BuildForecast(), options, CancellationToken.None);
+
+        Assert.Contains("Current summary: valid to 3/13 16:00PDT 2/3/3 existing summary", runner.Prompt);
     }
 
     private static AvalancheForecast BuildForecast() =>

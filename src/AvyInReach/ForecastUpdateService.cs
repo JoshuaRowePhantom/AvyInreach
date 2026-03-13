@@ -31,7 +31,7 @@ internal sealed class ForecastUpdateService(
         CancellationToken cancellationToken)
     {
         var forecast = await GetForecastOrThrowAsync(providerName, regionName, cancellationToken);
-        var options = await GetSummaryGenerationOptionsAsync(recipientAddress, cancellationToken);
+        var options = await GetSummaryGenerationOptionsAsync(recipientAddress, currentSummary: null, cancellationToken);
         log.Info("Generating Copilot summary...");
         return await summarizer.GenerateSummaryAsync(forecast, options, cancellationToken);
     }
@@ -98,7 +98,7 @@ internal sealed class ForecastUpdateService(
                 return;
             }
 
-            var options = await GetSummaryGenerationOptionsAsync(inReachAddress, cancellationToken);
+            var options = await GetSummaryGenerationOptionsAsync(inReachAddress, state.LastSummary, cancellationToken);
             log.Info("Generating Copilot summary...");
             var summary = await summarizer.GenerateSummaryAsync(forecast, options, cancellationToken);
             var summaryFingerprint = ComputeTextFingerprint(summary);
@@ -158,13 +158,15 @@ internal sealed class ForecastUpdateService(
 
     private async Task<SummaryGenerationOptions> GetSummaryGenerationOptionsAsync(
         string recipientAddress,
+        string? currentSummary,
         CancellationToken cancellationToken)
     {
         var settings = await recipientConfigurationStore.GetRequiredAsync(recipientAddress, cancellationToken);
         return new SummaryGenerationOptions(
             settings.RecipientAddress,
             settings.Transport,
-            settings.SummaryCharacterBudget);
+            settings.SummaryCharacterBudget,
+            currentSummary);
     }
 
     private async Task HandleMissingForecastAsync(

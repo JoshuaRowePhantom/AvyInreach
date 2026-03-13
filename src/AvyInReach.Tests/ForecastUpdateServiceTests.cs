@@ -165,6 +165,39 @@ public sealed class ForecastUpdateServiceTests
     }
 
     [Fact]
+    public async Task Update_passes_last_summary_to_summarizer_for_reuse_decision()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
+        var provider = new SequentialForecastProvider(
+            [
+                BuildForecast(),
+                BuildForecast(weatherSummary: "updated weather summary"),
+            ]);
+        var summarizer = new FakeSummarizer(["first summary", "first summary"]);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([provider]),
+            summarizer,
+            emailSender,
+            deliveryConfigurationStore,
+            recipientConfigurationStore,
+            stateStore,
+            clock,
+            new ConsoleLog());
+
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+
+        Assert.Equal(2, summarizer.OptionsHistory.Count);
+        Assert.Null(summarizer.OptionsHistory[0].CurrentSummary);
+        Assert.Equal("first summary", summarizer.OptionsHistory[1].CurrentSummary);
+    }
+
+    [Fact]
     public async Task Missing_forecast_notice_sends_after_one_hour()
     {
         var paths = new AppPathsForTests();
@@ -382,11 +415,14 @@ internal sealed class FakeSummarizer(IReadOnlyList<string> results) : IForecastS
 
     public int CallCount => _index;
 
+    public List<SummaryGenerationOptions> OptionsHistory { get; } = [];
+
     public Task<string> GenerateSummaryAsync(
         AvalancheForecast forecast,
         SummaryGenerationOptions options,
         CancellationToken cancellationToken)
     {
+        OptionsHistory.Add(options);
         var value = results[Math.Min(_index, results.Count - 1)];
         _index++;
         return Task.FromResult(value);

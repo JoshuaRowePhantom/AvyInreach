@@ -16,6 +16,7 @@ internal sealed class RecipientConfigurationStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             if (!File.Exists(paths.RecipientConfigurationPath))
             {
                 return null;
@@ -67,6 +68,7 @@ internal sealed class RecipientConfigurationStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var file = File.Exists(paths.RecipientConfigurationPath)
                 ? await JsonFileStore.ReadAsync(paths.RecipientConfigurationPath, new RecipientConfigurationFile(), cancellationToken)
                 : new RecipientConfigurationFile();

@@ -83,6 +83,7 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
         builder.AppendLine("- Format each problem exactly as: <name> <O/X for below/treeline/alpine> <likelihood 1-5> <size range> <aspect set>.");
         builder.AppendLine("- Use the problem names, presence values, likelihood values, size ranges, and aspect sets exactly as provided below. Do not paraphrase them.");
         builder.AppendLine("- Use ALL only when the provided aspect set is ALL.");
+        builder.AppendLine("- If a current summary is provided below and it still accurately presents the same forecast information within the required structure and budget, return that exact current summary byte-for-byte.");
         builder.AppendLine("- Use the notice only for decision-driving statements that matter for travel choices, prioritizing recent avalanche activity, unusually serious hazards, and notable weak-layer concerns from any forecast section.");
         builder.AppendLine("- If there is no useful decision-driving notice that fits, omit the notice phrase entirely.");
         builder.AppendLine("- Weather must appear once at the end and must begin with 'WX: '. Weather must always include sun/cloud, wind, and temperature in terse form.");
@@ -95,6 +96,10 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
         builder.AppendLine($"Recipient: {options.RecipientAddress}");
         builder.AppendLine($"Transport: {options.Transport.ToConfigValue()}");
         builder.AppendLine($"Character budget: {options.SummaryCharacterBudget}");
+        if (!string.IsNullOrWhiteSpace(options.CurrentSummary))
+        {
+            builder.AppendLine($"Current summary: {options.CurrentSummary}");
+        }
         builder.AppendLine();
         builder.AppendLine($"Zone: {forecast.Region.DisplayName}");
         builder.AppendLine($"Danger: {forecast.CurrentDangerRatings.ToCompactString()}");
@@ -131,4 +136,5 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
 internal sealed record SummaryGenerationOptions(
     string RecipientAddress,
     RecipientTransport Transport,
-    int SummaryCharacterBudget);
+    int SummaryCharacterBudget,
+    string? CurrentSummary = null);

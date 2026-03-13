@@ -9,6 +9,7 @@ internal sealed class GarminConfigurationStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             if (!File.Exists(paths.GarminConfigurationPath))
             {
                 return null;
@@ -61,6 +62,7 @@ internal sealed class GarminConfigurationStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var file = File.Exists(paths.GarminConfigurationPath)
                 ? await JsonFileStore.ReadAsync(paths.GarminConfigurationPath, new GarminConfigurationFile(), cancellationToken)
                 : new GarminConfigurationFile();

@@ -9,6 +9,7 @@ internal sealed class SmtpConfigurationStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             if (!File.Exists(paths.SmtpConfigurationPath))
             {
                 return null;
@@ -56,6 +57,7 @@ internal sealed class SmtpConfigurationStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var existing = File.Exists(paths.SmtpConfigurationPath)
                 ? await JsonFileStore.ReadAsync(paths.SmtpConfigurationPath, new SmtpConfiguration(), cancellationToken)
                 : new SmtpConfiguration();

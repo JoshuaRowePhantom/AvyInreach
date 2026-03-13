@@ -9,6 +9,7 @@ internal sealed class ScheduleStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var file = await LoadAsync(cancellationToken);
             return file.Entries;
         }
@@ -29,6 +30,7 @@ internal sealed class ScheduleStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var file = await LoadAsync(cancellationToken);
             var existingIndex = file.Entries.FindIndex(item =>
                 string.Equals(item.Id, record.Id, StringComparison.OrdinalIgnoreCase));
@@ -55,6 +57,7 @@ internal sealed class ScheduleStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var file = await LoadAsync(cancellationToken);
             file.Entries.RemoveAll(item => string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase));
             await JsonFileStore.WriteAsync(paths.SchedulePath, file, cancellationToken);

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace AvyInReach;
@@ -22,6 +24,34 @@ internal static class JsonFileStore
         return value ?? fallback;
     }
 
+    public static Task<IAsyncDisposable> AcquireLockAsync(string rootDirectory, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(rootDirectory))
+        {
+            throw new InvalidOperationException("Store root directory cannot be empty.");
+        }
+
+        var semaphore = new Semaphore(initialCount: 1, maximumCount: 1, name: GetMutexName(rootDirectory));
+        try
+        {
+            var signaledIndex = WaitHandle.WaitAny([semaphore, cancellationToken.WaitHandle]);
+            if (signaledIndex == 1)
+            {
+                semaphore.Dispose();
+                throw new OperationCanceledException(cancellationToken);
+            }
+
+            return Task.FromResult<IAsyncDisposable>(new SemaphoreLease(semaphore));
+        }
+        catch
+        {
+            semaphore.Dispose();
+            throw;
+        }
+    }
+
     public static async Task WriteAsync<T>(string path, T value, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -33,5 +63,22 @@ internal static class JsonFileStore
         }
 
         File.Move(tempPath, path, overwrite: true);
+    }
+
+    internal static string GetMutexName(string rootDirectory)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(rootDirectory).ToUpperInvariant()));
+        var suffix = Convert.ToHexString(bytes);
+        return $"Local\\AvyInReach-Store-{suffix}";
+    }
+
+    private sealed class SemaphoreLease(Semaphore semaphore) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync()
+        {
+            semaphore.Release();
+            semaphore.Dispose();
+            return ValueTask.CompletedTask;
+        }
     }
 }

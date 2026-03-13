@@ -16,6 +16,7 @@ internal sealed class DeliveryStateStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var file = await LoadAsync(cancellationToken);
             var regionList = regions
                 .Where(region => !string.IsNullOrWhiteSpace(region))
@@ -51,6 +52,7 @@ internal sealed class DeliveryStateStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var file = await LoadAsync(cancellationToken);
             var regionList = regions
                 .Append(record.Region)
@@ -80,6 +82,7 @@ internal sealed class DeliveryStateStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var file = await LoadAsync(cancellationToken);
             var match = file.Recipients.FirstOrDefault(entry =>
                 string.Equals(entry.InReachAddress, inReachAddress, StringComparison.OrdinalIgnoreCase));
@@ -103,6 +106,7 @@ internal sealed class DeliveryStateStore(AppPaths paths)
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            await using var lease = await JsonFileStore.AcquireLockAsync(paths.RootDirectory, cancellationToken);
             var file = await LoadAsync(cancellationToken);
             file.Recipients.RemoveAll(entry =>
                 string.Equals(entry.InReachAddress, record.InReachAddress, StringComparison.OrdinalIgnoreCase));
