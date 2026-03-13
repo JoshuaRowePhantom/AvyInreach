@@ -4,12 +4,18 @@ namespace AvyInReach;
 
 internal interface IForecastSummarizer
 {
-    Task<string> GenerateSummaryAsync(AvalancheForecast forecast, CancellationToken cancellationToken);
+    Task<string> GenerateSummaryAsync(
+        AvalancheForecast forecast,
+        SummaryGenerationOptions options,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IForecastSummarizer
 {
-    public async Task<string> GenerateSummaryAsync(AvalancheForecast forecast, CancellationToken cancellationToken)
+    public async Task<string> GenerateSummaryAsync(
+        AvalancheForecast forecast,
+        SummaryGenerationOptions options,
+        CancellationToken cancellationToken)
     {
         var validUntil = ValidityText.Format(forecast.ValidUntil, forecast.TimezoneId);
         var prompt = BuildPrompt(forecast, validUntil);
@@ -101,3 +107,8 @@ internal sealed class CopilotCliSummarizer(IProcessRunner processRunner) : IFore
         return builder.ToString();
     }
 }
+
+internal sealed record SummaryGenerationOptions(
+    string RecipientAddress,
+    RecipientTransport Transport,
+    int SummaryCharacterBudget);

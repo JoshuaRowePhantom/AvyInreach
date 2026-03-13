@@ -2,13 +2,16 @@ namespace AvyInReach.Tests;
 
 public sealed class CopilotCliSummarizerTests
 {
+    private static readonly SummaryGenerationOptions DefaultOptions =
+        new("user@inreach.garmin.com", RecipientTransport.InReach, 480);
+
     [Fact]
     public async Task GenerateSummaryAsync_includes_likelihood_in_problem_prompt()
     {
         var runner = new CapturingProcessRunner("valid to 3/13 16:00PDT 2/3/3 Wind slab O/O/O 4 1-2 ALL. WX: light snow.");
         var summarizer = new CopilotCliSummarizer(runner);
 
-        _ = await summarizer.GenerateSummaryAsync(BuildForecast(), CancellationToken.None);
+        _ = await summarizer.GenerateSummaryAsync(BuildForecast(), DefaultOptions, CancellationToken.None);
 
         Assert.Contains(
             "Format each problem exactly as: <name> <O/X for below/treeline/alpine> <likelihood 1-5> <size range> <aspect set>.",
@@ -32,7 +35,7 @@ public sealed class CopilotCliSummarizerTests
     {
         var summarizer = new CopilotCliSummarizer(new FakeProcessRunner("2/3/3 Wind slab O/O/O 1-2 ALL. WX: light snow."));
 
-        var summary = await summarizer.GenerateSummaryAsync(BuildForecast(), CancellationToken.None);
+        var summary = await summarizer.GenerateSummaryAsync(BuildForecast(), DefaultOptions, CancellationToken.None);
 
         Assert.StartsWith("valid to 3/13 16:00PDT ", summary);
         Assert.Contains("2/3/3", summary);
@@ -43,7 +46,7 @@ public sealed class CopilotCliSummarizerTests
     {
         var summarizer = new CopilotCliSummarizer(new FakeProcessRunner("2/3/3 Wind slab O/O/O 1-2 ALL. valid to 3/13 16:00PDT WX: light snow."));
 
-        var summary = await summarizer.GenerateSummaryAsync(BuildForecast(), CancellationToken.None);
+        var summary = await summarizer.GenerateSummaryAsync(BuildForecast(), DefaultOptions, CancellationToken.None);
 
         Assert.StartsWith("valid to 3/13 16:00PDT ", summary);
         Assert.DoesNotContain(". valid to 3/13 16:00PDT", summary);

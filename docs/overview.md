@@ -21,19 +21,21 @@ Phase 1 supports only `avalanche-canada`.
 
 `delivery reports <count>`
 
+`recipient configure <address> transport <email|sms|inreach> [summary <count>]`
+
 `garmin link <inreach> <reply-url>`
 
 `garmin link <inreach> <reply-url> [messages <count>]`
 
 `regions [provider]`
 
-`summary <provider> <region>`
+`preview <recipient> <provider> <region>`
 
-`send <inreach> <provider> <region>`
+`send <recipient> <provider> <region>`
 
-`update <inreach> <provider> <region>`
+`update <recipient> <provider> <region>`
 
-`schedule <start> <end> <inreach> <provider> <region>`
+`schedule <start> <end> <recipient> <provider> <region>`
 
 `schedules`
 
@@ -57,7 +59,7 @@ If the inputs changed, it generates the outbound summary text and compares a sep
 
 If the generated-summary fingerprint changed, it sends. If the generated-summary fingerprint is identical, it does not.
 
-`summary` uses the same fetch and Copilot summarization path, but prints the generated line to stdout instead of sending mail.
+`preview` uses the same fetch and Copilot summarization path as sending, but prints the generated line to stdout instead of sending mail. It uses the configured recipient settings for sizing.
 
 `update` also enforces a per-recipient rolling 24-hour report cap. The default is `4`, and one Garmin multipart delivery still counts as one report. Manual `send` bypasses that cap.
 
@@ -95,6 +97,7 @@ Files:
 
 - `smtp.json` stores SMTP server and sender configuration
 - `delivery.json` stores the rolling 24-hour report cap
+- `recipients.json` stores recipient transport and summary budget configuration
 - `garmin.json` stores Garmin reply links by recipient address
 - `delivery-state.json` stores the last sent summary plus retry/error notification state
 - `schedules.json` stores installed schedule metadata and task names

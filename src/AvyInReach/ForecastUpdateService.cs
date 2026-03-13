@@ -15,6 +15,7 @@ internal sealed class ForecastUpdateService(
     IForecastSummarizer summarizer,
     IEmailSender emailSender,
     DeliveryConfigurationStore deliveryConfigurationStore,
+    RecipientConfigurationStore recipientConfigurationStore,
     DeliveryStateStore stateStore,
     IClock clock,
     ConsoleLog log)
@@ -24,13 +25,15 @@ internal sealed class ForecastUpdateService(
     private static readonly JsonSerializerOptions FingerprintSerializerOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<string> GenerateSummaryAsync(
+        string recipientAddress,
         string providerName,
         string regionName,
         CancellationToken cancellationToken)
     {
         var forecast = await GetForecastOrThrowAsync(providerName, regionName, cancellationToken);
+        var options = await GetSummaryGenerationOptionsAsync(recipientAddress, cancellationToken);
         log.Info("Generating Copilot summary...");
-        return await summarizer.GenerateSummaryAsync(forecast, cancellationToken);
+        return await summarizer.GenerateSummaryAsync(forecast, options, cancellationToken);
     }
 
     public async Task ProcessAsync(
@@ -95,8 +98,9 @@ internal sealed class ForecastUpdateService(
                 return;
             }
 
+            var options = await GetSummaryGenerationOptionsAsync(inReachAddress, cancellationToken);
             log.Info("Generating Copilot summary...");
-            var summary = await summarizer.GenerateSummaryAsync(forecast, cancellationToken);
+            var summary = await summarizer.GenerateSummaryAsync(forecast, options, cancellationToken);
             var summaryFingerprint = ComputeTextFingerprint(summary);
             if (mode == DeliveryMode.Update
                 && string.Equals(state.LastSummaryFingerprint, summaryFingerprint, StringComparison.Ordinal))
@@ -150,6 +154,17 @@ internal sealed class ForecastUpdateService(
             log.Warn(ex.Message);
             await HandleErrorAsync(inReachAddress, provider.Id, regionName, ex, cancellationToken);
         }
+    }
+
+    private async Task<SummaryGenerationOptions> GetSummaryGenerationOptionsAsync(
+        string recipientAddress,
+        CancellationToken cancellationToken)
+    {
+        var settings = await recipientConfigurationStore.GetRequiredAsync(recipientAddress, cancellationToken);
+        return new SummaryGenerationOptions(
+            settings.RecipientAddress,
+            settings.Transport,
+            settings.SummaryCharacterBudget);
     }
 
     private async Task HandleMissingForecastAsync(

@@ -18,9 +18,10 @@ internal static class CommandParser
             "help" => new HelpCommand(),
             "delivery" => ParseDelivery(args),
             "garmin" => ParseGarmin(args),
+            "recipient" => ParseRecipient(args),
             "smtp" => ParseSmtp(args),
             "regions" => ParseRegions(args),
-            "summary" => ParseSummary(args),
+            "preview" => ParsePreview(args),
             "send" => ParseSend(args),
             "update" => ParseUpdate(args),
             "schedule" => ParseSchedule(args),
@@ -44,27 +45,27 @@ internal static class CommandParser
     {
         if (args.Length < 4)
         {
-            throw new CliUsageException("Usage: AvyInReach.exe send <inreach> <provider> <region>");
+            throw new CliUsageException("Usage: AvyInReach.exe send <recipient> <provider> <region>");
         }
 
         return new SendCommand(args[1], args[2], JoinRegion(args, 3));
     }
 
-    private static ParsedCommand ParseSummary(string[] args)
+    private static ParsedCommand ParsePreview(string[] args)
     {
-        if (args.Length < 3)
+        if (args.Length < 4)
         {
-            throw new CliUsageException("Usage: AvyInReach.exe summary <provider> <region>");
+            throw new CliUsageException("Usage: AvyInReach.exe preview <recipient> <provider> <region>");
         }
 
-        return new SummaryCommand(args[1], JoinRegion(args, 2));
+        return new PreviewCommand(args[1], args[2], JoinRegion(args, 3));
     }
 
     private static ParsedCommand ParseUpdate(string[] args)
     {
         if (args.Length < 4)
         {
-            throw new CliUsageException("Usage: AvyInReach.exe update <inreach> <provider> <region>");
+            throw new CliUsageException("Usage: AvyInReach.exe update <recipient> <provider> <region>");
         }
 
         return new UpdateCommand(args[1], args[2], JoinRegion(args, 3));
@@ -74,7 +75,7 @@ internal static class CommandParser
     {
         if (args.Length < 6)
         {
-            throw new CliUsageException("Usage: AvyInReach.exe schedule <start> <end> <inreach> <provider> <region>");
+            throw new CliUsageException("Usage: AvyInReach.exe schedule <start> <end> <recipient> <provider> <region>");
         }
 
         var now = DateTimeOffset.Now;
@@ -130,6 +131,36 @@ internal static class CommandParser
         }
 
         return new DeliveryConfigureCommand(maxReportsPer24Hours);
+    }
+
+    private static ParsedCommand ParseRecipient(string[] args)
+    {
+        if ((args.Length != 5 && args.Length != 7)
+            || !string.Equals(args[1], "configure", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(args[3], "transport", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CliUsageException(
+                "Usage: AvyInReach.exe recipient configure <address> transport <email|sms|inreach> [summary <count>]");
+        }
+
+        int? summaryCharacterBudget = null;
+        if (args.Length == 7)
+        {
+            if (!string.Equals(args[5], "summary", StringComparison.OrdinalIgnoreCase)
+                || !int.TryParse(args[6], out var parsedBudget)
+                || parsedBudget < 1)
+            {
+                throw new CliUsageException(
+                    "Usage: AvyInReach.exe recipient configure <address> transport <email|sms|inreach> [summary <count>]");
+            }
+
+            summaryCharacterBudget = parsedBudget;
+        }
+
+        return new RecipientConfigureCommand(
+            args[2].Trim(),
+            ParseRecipientTransport(args[4]),
+            summaryCharacterBudget);
     }
 
     private static ParsedCommand ParseSmtp(string[] args)
@@ -242,6 +273,19 @@ internal static class CommandParser
 
         return uri;
     }
+
+    private static RecipientTransport ParseRecipientTransport(string value)
+    {
+        try
+        {
+            return RecipientConfigurationStore.ParseTransport(value);
+        }
+        catch (InvalidOperationException)
+        {
+            throw new CliUsageException(
+                "Usage: AvyInReach.exe recipient configure <address> transport <email|sms|inreach> [summary <count>]");
+        }
+    }
 }
 
 internal abstract record ParsedCommand;
@@ -250,13 +294,18 @@ internal sealed record HelpCommand : ParsedCommand;
 
 internal sealed record RegionsCommand(string? Provider) : ParsedCommand;
 
+internal sealed record RecipientConfigureCommand(
+    string RecipientAddress,
+    RecipientTransport Transport,
+    int? SummaryCharacterBudget) : ParsedCommand;
+
 internal sealed record GarminConfigureCommand(string InReachAddress, Uri ReplyLink, int MaxMessages) : ParsedCommand;
 
 internal sealed record DeliveryConfigureCommand(int MaxReportsPer24Hours) : ParsedCommand;
 
 internal sealed record SmtpConfigureCommand(SmtpServer Server, string FromAddress) : ParsedCommand;
 
-internal sealed record SummaryCommand(string Provider, string Region) : ParsedCommand;
+internal sealed record PreviewCommand(string RecipientAddress, string Provider, string Region) : ParsedCommand;
 
 internal sealed record SendCommand(string InReachAddress, string Provider, string Region) : ParsedCommand;
 
@@ -284,23 +333,26 @@ internal static class CommandText
         Commands:
           AvyInReach.exe help
           AvyInReach.exe delivery reports <count>
+          AvyInReach.exe recipient configure <address> transport <email|sms|inreach> [summary <count>]
           AvyInReach.exe garmin link <inreach> <reply-url> [messages <count>]
           AvyInReach.exe smtp server <host:port> from <address>
           AvyInReach.exe regions [provider]
-          AvyInReach.exe summary <provider> <region>
-          AvyInReach.exe send <inreach> <provider> <region>
-          AvyInReach.exe update <inreach> <provider> <region>
-          AvyInReach.exe schedule <start> <end> <inreach> <provider> <region>
+          AvyInReach.exe preview <recipient> <provider> <region>
+          AvyInReach.exe send <recipient> <provider> <region>
+          AvyInReach.exe update <recipient> <provider> <region>
+          AvyInReach.exe schedule <start> <end> <recipient> <provider> <region>
           AvyInReach.exe schedules
           AvyInReach.exe unschedule <id>
 
         Examples:
           AvyInReach.exe delivery reports 4
+          AvyInReach.exe recipient configure somebody@example.com transport email
+          AvyInReach.exe recipient configure somebody@inreach.garmin.com transport inreach summary 480
           AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example
           AvyInReach.exe garmin link somebody@inreach.garmin.com https://inreachlink.com/example messages 3
           AvyInReach.exe smtp server smtp.example.com:25 from avyinreach@example.com
           AvyInReach.exe regions avalanche-canada
-          AvyInReach.exe summary avalanche-canada Glacier
+          AvyInReach.exe preview somebody@inreach.garmin.com avalanche-canada Glacier
           AvyInReach.exe send somebody@inreach.garmin.com avalanche-canada Glacier
           AvyInReach.exe update somebody@inreach.garmin.com avalanche-canada "Coquihalla-Harrison-Fraser-Manning-Sasquatch-Skagit"
           AvyInReach.exe schedule 3/14 3/22 somebody@inreach.garmin.com avalanche-canada Glacier
@@ -308,14 +360,16 @@ internal static class CommandText
         Notes:
           - Phase 1 supports only provider 'avalanche-canada'
           - update enforces a rolling 24-hour per-recipient report cap (default 4)
+          - recipients must be configured before preview/send/update so summary sizing comes from recipient settings
           - inreach.garmin.com recipients require a configured Garmin reply link
           - Garmin replies are split into up to the configured number of 160-char messages (default 3)
-          - summary prints the generated Copilot summary without sending email
+          - preview prints the generated Copilot summary without sending email
           - update sends only when the final generated summary text changes
           - summaries always begin with 'valid to M/d HH:mmTZ'
 
         SMTP settings are stored in %LocalAppData%\AvyInReach\smtp.json.
         Delivery limits are stored in %LocalAppData%\AvyInReach\delivery.json.
+        Recipient settings are stored in %LocalAppData%\AvyInReach\recipients.json.
         Garmin reply links are stored in %LocalAppData%\AvyInReach\garmin.json.
         The configure command writes server and from address there.
         JSON defaults remain enableSsl=false and useDefaultCredentials=true unless edited.

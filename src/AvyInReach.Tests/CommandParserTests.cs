@@ -25,11 +25,23 @@ public sealed class CommandParserTests
     [Fact]
     public void Summary_parses_multi_word_region_without_inreach()
     {
-        var command = Assert.IsType<SummaryCommand>(CommandParser.Parse(
-            ["summary", "avalanche-canada", "South", "Rockies"]));
+        var command = Assert.IsType<PreviewCommand>(CommandParser.Parse(
+            ["preview", "user@example.com", "avalanche-canada", "South", "Rockies"]));
 
+        Assert.Equal("user@example.com", command.RecipientAddress);
         Assert.Equal("avalanche-canada", command.Provider);
         Assert.Equal("South Rockies", command.Region);
+    }
+
+    [Fact]
+    public void Recipient_command_parses_transport_and_optional_summary_budget()
+    {
+        var command = Assert.IsType<RecipientConfigureCommand>(CommandParser.Parse(
+            ["recipient", "configure", "user@example.com", "transport", "sms", "summary", "280"]));
+
+        Assert.Equal("user@example.com", command.RecipientAddress);
+        Assert.Equal(RecipientTransport.Sms, command.Transport);
+        Assert.Equal(280, command.SummaryCharacterBudget);
     }
 
     [Fact]

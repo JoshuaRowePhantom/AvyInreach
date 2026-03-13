@@ -19,6 +19,7 @@ The project exists to:
 - SMTP delivery for normal recipients
 - Garmin inReach web-reply delivery for `@inreach.garmin.com` recipients
 - Garmin multipart message splitting with configurable per-recipient part limits
+- recipient-configured summary budgets for `preview`, `send`, and `update`
 - `update` deduplication using separate input and output fingerprints
 - configurable rolling 24-hour report cap for `update`
 - Windows Task Scheduler integration for recurring updates
@@ -29,18 +30,20 @@ The project exists to:
 ```powershell
 .\AvyInReach.exe smtp server <host:port> from <address>
 .\AvyInReach.exe delivery reports <count>
+.\AvyInReach.exe recipient configure <address> transport <email|sms|inreach> [summary <count>]
 .\AvyInReach.exe garmin link <inreach> <reply-url> [messages <count>]
 .\AvyInReach.exe regions avalanche-canada
-.\AvyInReach.exe summary avalanche-canada <region>
-.\AvyInReach.exe send <inreach> avalanche-canada <region>
-.\AvyInReach.exe update <inreach> avalanche-canada <region>
-.\AvyInReach.exe schedule <start> <end> <inreach> avalanche-canada <region>
+.\AvyInReach.exe preview <recipient> avalanche-canada <region>
+.\AvyInReach.exe send <recipient> avalanche-canada <region>
+.\AvyInReach.exe update <recipient> avalanche-canada <region>
+.\AvyInReach.exe schedule <start> <end> <recipient> avalanche-canada <region>
 ```
 
 ## Notes
 
 - Phase 1 supports only `avalanche-canada`
 - `send` always sends immediately
+- `preview`, `send`, and `update` size summaries from recipient configuration
 - `update` sends only when forecast inputs and generated output require it
 - scheduled tasks prompt for Task Scheduler credentials at install time
 

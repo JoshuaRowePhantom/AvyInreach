@@ -10,9 +10,10 @@
 ## Setup order
 
 1. Configure SMTP so normal recipients can be sent.
-2. Configure the `update` delivery cap if you want something other than the default of `4`.
-3. If you send to `@inreach.garmin.com`, configure a Garmin reply link for that recipient.
-4. If you want automation, install a schedule.
+2. Configure each recipient so summary sizing comes from stored recipient settings.
+3. Configure the `update` delivery cap if you want something other than the default of `4`.
+4. If you send to `@inreach.garmin.com`, configure a Garmin reply link for that recipient.
+5. If you want automation, install a schedule.
 
 ## SMTP setup
 
@@ -65,6 +66,30 @@ One outbound `update` report counts as one send even when Garmin splits that rep
 
 Manual `send` bypasses this failsafe.
 
+## Recipient summary sizing
+
+Configure a recipient with:
+
+```powershell
+.\AvyInReach.exe recipient configure somebody@example.com transport email
+```
+
+Optional explicit summary budget:
+
+```powershell
+.\AvyInReach.exe recipient configure somebody@inreach.garmin.com transport inreach summary 480
+```
+
+This writes `%LOCALAPPDATA%\AvyInReach\recipients.json`.
+
+If you omit `summary <count>`, AvyInReach seeds the stored recipient budget from the transport:
+
+- `email`: `1024`
+- `sms`: `420`
+- `inreach`: `480`
+
+After configuration, the stored recipient value becomes the source of truth for `preview`, `send`, and `update`.
+
 ## Garmin InReach setup
 
 If the recipient is an `@inreach.garmin.com` address, configure the Garmin reply link from a real incoming inReach email:
@@ -80,6 +105,8 @@ Optional max-part override:
 ```
 
 This writes `%LOCALAPPDATA%\AvyInReach\garmin.json`.
+
+`garmin link` also ensures the recipient has `inreach` summary settings in `recipients.json`.
 
 When sending to Garmin, AvyInReach fetches the configured reply page, extracts Garmin's hidden reply identifiers, and posts the message back through Garmin's web reply flow.
 
@@ -107,6 +134,7 @@ Files:
 
 - `smtp.json` stores SMTP server and sender configuration
 - `delivery.json` stores the rolling 24-hour report cap, defaulting to 4
+- `recipients.json` stores recipient transport and summary budget settings
 - `garmin.json` stores Garmin reply links by InReach recipient address
 - `delivery-state.json` stores the last sent summary plus retry/error notification state
 - `schedules.json` stores installed schedule metadata and task names
@@ -138,7 +166,7 @@ Send now:
 Preview the generated summary without sending:
 
 ```powershell
-.\AvyInReach.exe summary avalanche-canada Glacier
+.\AvyInReach.exe preview somebody@inreach.garmin.com avalanche-canada Glacier
 ```
 
 Only send when the final summary changes:

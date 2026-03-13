@@ -32,6 +32,7 @@ internal sealed class CliApplication
             var appPaths = new AppPaths();
             var stateStore = new DeliveryStateStore(appPaths);
             var deliveryConfigurationStore = new DeliveryConfigurationStore(appPaths);
+            var recipientConfigurationStore = new RecipientConfigurationStore(appPaths);
             var scheduleStore = new ScheduleStore(appPaths);
             var smtpConfigurationStore = new SmtpConfigurationStore(appPaths);
             var garminConfigurationStore = new GarminConfigurationStore(appPaths);
@@ -48,6 +49,7 @@ internal sealed class CliApplication
                 summarizer,
                 emailSender,
                 deliveryConfigurationStore,
+                recipientConfigurationStore,
                 stateStore,
                 clock,
                 _log);
@@ -60,7 +62,18 @@ internal sealed class CliApplication
                     return 0;
 
                 case GarminConfigureCommand garminConfigureCommand:
-                    await HandleGarminConfigureAsync(garminConfigurationStore, garminConfigureCommand, cancellationToken);
+                    await HandleGarminConfigureAsync(
+                        garminConfigurationStore,
+                        recipientConfigurationStore,
+                        garminConfigureCommand,
+                        cancellationToken);
+                    return 0;
+
+                case RecipientConfigureCommand recipientConfigureCommand:
+                    await HandleRecipientConfigureAsync(
+                        recipientConfigurationStore,
+                        recipientConfigureCommand,
+                        cancellationToken);
                     return 0;
 
                 case DeliveryConfigureCommand deliveryConfigureCommand:
@@ -75,10 +88,11 @@ internal sealed class CliApplication
                     await HandleRegionsAsync(providerRegistry, regionsCommand.Provider, cancellationToken);
                     return 0;
 
-                case SummaryCommand summaryCommand:
+                case PreviewCommand previewCommand:
                     _log.Info(await updateService.GenerateSummaryAsync(
-                        summaryCommand.Provider,
-                        summaryCommand.Region,
+                        previewCommand.RecipientAddress,
+                        previewCommand.Provider,
+                        previewCommand.Region,
                         cancellationToken));
                     return 0;
 
@@ -141,14 +155,37 @@ internal sealed class CliApplication
 
     private async Task HandleGarminConfigureAsync(
         GarminConfigurationStore configurationStore,
+        RecipientConfigurationStore recipientConfigurationStore,
         GarminConfigureCommand command,
         CancellationToken cancellationToken)
     {
         await configurationStore.ConfigureAsync(command.InReachAddress, command.ReplyLink, command.MaxMessages, cancellationToken);
+        var recipientSettings = await recipientConfigurationStore.ConfigureAsync(
+            command.InReachAddress,
+            RecipientTransport.InReach,
+            summaryCharacterBudget: null,
+            cancellationToken);
         _log.Info("Garmin reply link saved.");
         _log.Info($"InReach: {command.InReachAddress}");
         _log.Info($"Reply link: {command.ReplyLink}");
         _log.Info($"Max messages: {command.MaxMessages}");
+        _log.Info($"Summary budget: {recipientSettings.SummaryCharacterBudget}");
+    }
+
+    private async Task HandleRecipientConfigureAsync(
+        RecipientConfigurationStore configurationStore,
+        RecipientConfigureCommand command,
+        CancellationToken cancellationToken)
+    {
+        var settings = await configurationStore.ConfigureAsync(
+            command.RecipientAddress,
+            command.Transport,
+            command.SummaryCharacterBudget,
+            cancellationToken);
+        _log.Info("Recipient settings saved.");
+        _log.Info($"Recipient: {settings.RecipientAddress}");
+        _log.Info($"Transport: {settings.Transport.ToConfigValue()}");
+        _log.Info($"Summary budget: {settings.SummaryCharacterBudget}");
     }
 
     private async Task HandleDeliveryConfigureAsync(

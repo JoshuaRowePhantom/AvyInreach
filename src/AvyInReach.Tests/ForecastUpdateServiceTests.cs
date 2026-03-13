@@ -8,6 +8,7 @@ public sealed class ForecastUpdateServiceTests
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
         var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
         var provider = new SequentialForecastProvider([BuildForecast(), BuildForecast()]);
         var summarizer = new FakeSummarizer(["first summary", "second summary"]);
         var emailSender = new FakeEmailSender();
@@ -17,6 +18,7 @@ public sealed class ForecastUpdateServiceTests
             summarizer,
             emailSender,
             deliveryConfigurationStore,
+            recipientConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -39,6 +41,7 @@ public sealed class ForecastUpdateServiceTests
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
         var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
         var provider = new SequentialForecastProvider([BuildForecast(), BuildForecast()]);
         var summarizer = new FakeSummarizer(["first summary", "second summary"]);
         var emailSender = new FakeEmailSender();
@@ -48,6 +51,7 @@ public sealed class ForecastUpdateServiceTests
             summarizer,
             emailSender,
             deliveryConfigurationStore,
+            recipientConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -66,6 +70,7 @@ public sealed class ForecastUpdateServiceTests
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
         var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
         var provider = new SequentialForecastProvider(
             [
                 BuildForecast(),
@@ -79,6 +84,7 @@ public sealed class ForecastUpdateServiceTests
             summarizer,
             emailSender,
             deliveryConfigurationStore,
+            recipientConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -101,6 +107,7 @@ public sealed class ForecastUpdateServiceTests
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
         var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
         var provider = new SequentialForecastProvider([BuildForecast()]);
         var summarizer = new FakeSummarizer(["preferred second-style summary"]);
         var emailSender = new FakeEmailSender();
@@ -110,6 +117,7 @@ public sealed class ForecastUpdateServiceTests
             summarizer,
             emailSender,
             deliveryConfigurationStore,
+            recipientConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -129,6 +137,7 @@ public sealed class ForecastUpdateServiceTests
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
         var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
         var provider = new SequentialForecastProvider(
             [
                 BuildForecast(),
@@ -142,6 +151,7 @@ public sealed class ForecastUpdateServiceTests
             summarizer,
             emailSender,
             deliveryConfigurationStore,
+            recipientConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -160,6 +170,7 @@ public sealed class ForecastUpdateServiceTests
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
         var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
         var provider = new MissingForecastProvider();
         var emailSender = new FakeEmailSender();
         var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
@@ -168,6 +179,7 @@ public sealed class ForecastUpdateServiceTests
             new FakeSummarizer([]),
             emailSender,
             deliveryConfigurationStore,
+            recipientConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -186,6 +198,7 @@ public sealed class ForecastUpdateServiceTests
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
         var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
         await deliveryConfigurationStore.ConfigureAsync(4, CancellationToken.None);
         var provider = new SequentialForecastProvider(
             [
@@ -203,6 +216,7 @@ public sealed class ForecastUpdateServiceTests
             summarizer,
             emailSender,
             deliveryConfigurationStore,
+            recipientConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -226,6 +240,7 @@ public sealed class ForecastUpdateServiceTests
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
         var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
         await deliveryConfigurationStore.ConfigureAsync(4, CancellationToken.None);
         var provider = new SequentialForecastProvider(
             [
@@ -244,6 +259,7 @@ public sealed class ForecastUpdateServiceTests
             summarizer,
             emailSender,
             deliveryConfigurationStore,
+            recipientConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -267,6 +283,7 @@ public sealed class ForecastUpdateServiceTests
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
         var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
         await deliveryConfigurationStore.ConfigureAsync(1, CancellationToken.None);
         await stateStore.UpsertRecipientAsync(
             new RecipientDeliveryStateRecord
@@ -284,6 +301,7 @@ public sealed class ForecastUpdateServiceTests
             summarizer,
             emailSender,
             deliveryConfigurationStore,
+            recipientConfigurationStore,
             stateStore,
             clock,
             new ConsoleLog());
@@ -309,6 +327,17 @@ public sealed class ForecastUpdateServiceTests
             "snowpack summary",
             weatherSummary,
             null);
+
+    private static async Task<RecipientConfigurationStore> ConfigureRecipientAsync(
+        AppPaths paths,
+        string recipientAddress = "user@inreach.garmin.com",
+        RecipientTransport transport = RecipientTransport.InReach,
+        int? summaryCharacterBudget = null)
+    {
+        var store = new RecipientConfigurationStore(paths);
+        await store.ConfigureAsync(recipientAddress, transport, summaryCharacterBudget, CancellationToken.None);
+        return store;
+    }
 }
 
 internal sealed class SequentialForecastProvider(IReadOnlyList<AvalancheForecast> forecasts) : IAvalancheProvider
@@ -353,7 +382,10 @@ internal sealed class FakeSummarizer(IReadOnlyList<string> results) : IForecastS
 
     public int CallCount => _index;
 
-    public Task<string> GenerateSummaryAsync(AvalancheForecast forecast, CancellationToken cancellationToken)
+    public Task<string> GenerateSummaryAsync(
+        AvalancheForecast forecast,
+        SummaryGenerationOptions options,
+        CancellationToken cancellationToken)
     {
         var value = results[Math.Min(_index, results.Count - 1)];
         _index++;
