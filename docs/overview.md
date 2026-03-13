@@ -6,17 +6,24 @@ Maintainer: Josh Rowe
 
 Phase 1 supports only `avalanche-canada`.
 
+## Setup order
+
+1. Configure SMTP for normal outbound mail.
+2. Configure the `update` delivery cap if you want something other than the default of `4`.
+3. If you send to `@inreach.garmin.com`, configure a Garmin reply link for that recipient.
+4. If you want automation, install a schedule.
+
 ## Commands
 
 `help`
+
+`smtp server <host:port> from <address>`
 
 `delivery reports <count>`
 
 `garmin link <inreach> <reply-url>`
 
 `garmin link <inreach> <reply-url> [messages <count>]`
-
-`smtp server <host:port> from <address>`
 
 `regions [provider]`
 
@@ -32,6 +39,12 @@ Phase 1 supports only `avalanche-canada`.
 
 `unschedule <id>`
 
+## Scheduling
+
+`schedule` creates a Windows Task Scheduler task that runs every 15 minutes between the requested start and end dates.
+
+The app installs the task with `schtasks.exe` and configures the task XML so the task expires and self-deletes after the date range closes.
+
 ## How `update` decides to send
 
 `update` does not compare source timestamps or issue dates.
@@ -44,6 +57,12 @@ If the summary text changed, it sends. If the summary text is identical, it does
 
 `update` also enforces a per-recipient rolling 24-hour report cap. The default is `4`, and one Garmin multipart delivery still counts as one report. Manual `send` bypasses that cap.
 
+## Garmin delivery
+
+Garmin recipients use a configured reply link from an incoming inReach message rather than normal SMTP delivery.
+
+Garmin replies may be split into multiple 160-character parts, but one logical report still counts as one `update` send for the daily cap.
+
 ## Summary shape
 
 The Copilot prompt asks for a compact ASCII one-line forecast with:
@@ -53,6 +72,16 @@ The Copilot prompt asks for a compact ASCII one-line forecast with:
 - terse weather
 - a very brief notice when highlights/messages matter
 - the exact suffix `valid to M/d HH:mmTZ`
+
+## Copilot CLI integration
+
+The app shells out to:
+
+```powershell
+copilot -p "<prompt>" --allow-all --silent --output-format text --no-color
+```
+
+That means the local machine must already have a working `copilot` executable and login session.
 
 ## State on disk
 
@@ -65,9 +94,3 @@ Files:
 - `garmin.json` stores Garmin reply links by recipient address
 - `delivery-state.json` stores the last sent summary plus retry/error notification state
 - `schedules.json` stores installed schedule metadata and task names
-
-## Scheduling
-
-`schedule` creates a Windows Task Scheduler task that runs every 15 minutes between the requested start and end dates.
-
-The app installs the task with `schtasks.exe` and configures the task XML so the task expires and self-deletes after the date range closes.
