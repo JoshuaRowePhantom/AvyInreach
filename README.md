@@ -44,7 +44,7 @@ The project exists to:
 - Phase 1 supports only `avalanche-canada`
 - `send` always sends immediately
 - `preview`, `send`, and `update` size summaries from recipient configuration
-- summaries prioritize decision-driving notices and always include sun/cloud, wind, and temperature in `WX`
+- summaries prioritize decision-driving notices and always include sun/cloud, wind, and low/high temperature in `WX`
 - `update` sends only when forecast inputs and generated output require it
 - scheduled tasks prompt for Task Scheduler credentials at install time
 
