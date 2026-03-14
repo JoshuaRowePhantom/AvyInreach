@@ -5,7 +5,7 @@ using System.Xml.Linq;
 
 namespace AvyInReach;
 
-internal sealed class WindowsTaskScheduler(IProcessRunner processRunner, ConsoleLog log)
+internal sealed class WindowsTaskScheduler(IProcessRunner processRunner, IAppLog log)
 {
     [SupportedOSPlatform("windows")]
     public async Task RegisterAsync(

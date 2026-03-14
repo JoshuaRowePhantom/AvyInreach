@@ -1,6 +1,15 @@
 namespace AvyInReach;
 
-internal sealed class ConsoleLog
+internal interface IAppLog
+{
+    void Info(string message);
+
+    void Warn(string message);
+
+    void Error(string message);
+}
+
+internal sealed class ConsoleLog : IAppLog
 {
     public void Info(string message) => Console.WriteLine(message);
 

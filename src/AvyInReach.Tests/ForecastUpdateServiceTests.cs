@@ -344,6 +344,88 @@ public sealed class ForecastUpdateServiceTests
         Assert.Equal(["manual summary"], emailSender.SentBodies);
     }
 
+    [Fact]
+    public async Task Update_logs_send_decision_and_recipient()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
+        var provider = new SequentialForecastProvider([BuildForecast()]);
+        var summarizer = new FakeSummarizer(["summary 1"]);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var log = new RecordingLog();
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([provider]),
+            summarizer,
+            emailSender,
+            deliveryConfigurationStore,
+            recipientConfigurationStore,
+            stateStore,
+            clock,
+            log);
+
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+
+        Assert.Contains("Delivery mode: update; recipient: 'user@inreach.garmin.com'; provider: 'avalanche-canada'; requested region: 'Glacier'.", log.InfoMessages);
+        Assert.Contains("Update decision: summary changed; attempting delivery to 'user@inreach.garmin.com' with subject 'AvyInReach Glacier'.", log.InfoMessages);
+        Assert.Contains("Summary sent to 'user@inreach.garmin.com'.", log.InfoMessages);
+    }
+
+    [Fact]
+    public async Task Update_logs_skip_reason_when_forecast_is_unchanged()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
+        var provider = new SequentialForecastProvider([BuildForecast(), BuildForecast()]);
+        var summarizer = new FakeSummarizer(["summary 1"]);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var log = new RecordingLog();
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([provider]),
+            summarizer,
+            emailSender,
+            deliveryConfigurationStore,
+            recipientConfigurationStore,
+            stateStore,
+            clock,
+            log);
+
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+
+        Assert.Contains("Update decision: forecast unchanged; not sending to 'user@inreach.garmin.com'.", log.InfoMessages);
+    }
+
+    [Fact]
+    public async Task Update_logs_missing_forecast_recipient_and_skip_reason()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var log = new RecordingLog();
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([new MissingForecastProvider()]),
+            new FakeSummarizer([]),
+            emailSender,
+            deliveryConfigurationStore,
+            recipientConfigurationStore,
+            stateStore,
+            clock,
+            log);
+
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
+
+        Assert.Contains("No forecast published for 'Glacier'; not sending to 'user@inreach.garmin.com'.", log.WarnMessages);
+    }
+
     private static AvalancheForecast BuildForecast(string weatherSummary = "weather summary") =>
         new(
             new ForecastRegion("avalanche-canada", "Glacier", "report-1", "area-1", "https://example.com"),
@@ -445,6 +527,21 @@ internal sealed class FakeClock(DateTimeOffset utcNow) : IClock
     public DateTimeOffset UtcNowValue { get; set; } = utcNow;
 
     public DateTimeOffset UtcNow => UtcNowValue;
+}
+
+internal sealed class RecordingLog : IAppLog
+{
+    public List<string> InfoMessages { get; } = [];
+
+    public List<string> WarnMessages { get; } = [];
+
+    public List<string> ErrorMessages { get; } = [];
+
+    public void Info(string message) => InfoMessages.Add(message);
+
+    public void Warn(string message) => WarnMessages.Add(message);
+
+    public void Error(string message) => ErrorMessages.Add(message);
 }
 
 internal sealed class AppPathsForTests : AppPaths
