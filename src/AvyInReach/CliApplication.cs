@@ -378,7 +378,7 @@ internal sealed class CliApplication
             throw new InvalidOperationException($"No run log is available for schedule '{scheduleId}' yet.");
         }
 
-        _log.Info(await File.ReadAllTextAsync(schedule.LogPath, cancellationToken));
+        _log.Info(await ScheduleLogReader.ReadAsync(schedule.LogPath, cancellationToken));
     }
 
     private static string ReadRequiredLine(string prompt)

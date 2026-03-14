@@ -27,7 +27,7 @@ public sealed class ForecastUpdateServiceTests
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
 
         Assert.Single(emailSender.SentBodies);
-        Assert.Equal("first summary", emailSender.SentBodies[0]);
+        Assert.Equal("Glacier: first summary", emailSender.SentBodies[0]);
         Assert.Equal(1, summarizer.CallCount);
 
         var state = await stateStore.GetAsync("user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
@@ -60,7 +60,7 @@ public sealed class ForecastUpdateServiceTests
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Valhalla", CancellationToken.None);
 
         Assert.Single(emailSender.SentBodies);
-        Assert.Equal("first summary", emailSender.SentBodies[0]);
+        Assert.Equal("Glacier: first summary", emailSender.SentBodies[0]);
         Assert.Equal(1, summarizer.CallCount);
     }
 
@@ -94,7 +94,7 @@ public sealed class ForecastUpdateServiceTests
 
         Assert.Equal(2, summarizer.CallCount);
         Assert.Single(emailSender.SentBodies);
-        Assert.Equal("same summary", emailSender.SentBodies[0]);
+        Assert.Equal("Glacier: same summary", emailSender.SentBodies[0]);
 
         var state = await stateStore.GetAsync("user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
         Assert.False(string.IsNullOrWhiteSpace(state.LastForecastFingerprint));
@@ -161,7 +161,7 @@ public sealed class ForecastUpdateServiceTests
 
         Assert.Equal(2, summarizer.CallCount);
         Assert.Equal(2, emailSender.SentBodies.Count);
-        Assert.Equal(["first summary", "second summary"], emailSender.SentBodies);
+        Assert.Equal(["Glacier: first summary", "Glacier: second summary"], emailSender.SentBodies);
     }
 
     [Fact]
@@ -264,7 +264,7 @@ public sealed class ForecastUpdateServiceTests
         clock.UtcNowValue = clock.UtcNowValue.AddHours(1);
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
 
-        Assert.Equal(["summary 1", "summary 2", "summary 3", "summary 4"], emailSender.SentBodies);
+        Assert.Equal(["Glacier: summary 1", "Glacier: summary 2", "Glacier: summary 3", "Glacier: summary 4"], emailSender.SentBodies);
     }
 
     [Fact]
@@ -307,7 +307,7 @@ public sealed class ForecastUpdateServiceTests
         clock.UtcNowValue = clock.UtcNowValue.AddHours(21).AddMinutes(1);
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
 
-        Assert.Equal(["summary 1", "summary 2", "summary 3", "summary 4", "summary 6"], emailSender.SentBodies);
+        Assert.Equal(["Glacier: summary 1", "Glacier: summary 2", "Glacier: summary 3", "Glacier: summary 4", "Glacier: summary 6"], emailSender.SentBodies);
     }
 
     [Fact]
@@ -341,7 +341,7 @@ public sealed class ForecastUpdateServiceTests
 
         await service.ProcessAsync(DeliveryMode.Send, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
 
-        Assert.Equal(["manual summary"], emailSender.SentBodies);
+        Assert.Equal(["Glacier: manual summary"], emailSender.SentBodies);
     }
 
     [Fact]
@@ -426,11 +426,67 @@ public sealed class ForecastUpdateServiceTests
         Assert.Contains("No forecast published for 'Glacier'; not sending to 'user@inreach.garmin.com'.", log.WarnMessages);
     }
 
-    private static AvalancheForecast BuildForecast(string weatherSummary = "weather summary") =>
+    [Fact]
+    public async Task Update_prefixes_garmin_delivery_with_requested_region_name()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
+        var provider = new SequentialForecastProvider(
+            [BuildForecast(regionDisplayName: "Badshot-Battle-Central Selkirk-Esplanade-Goat-Gold-Jordan-North Monashee-North Selkirk-Retallack-Valhalla-West Purcell-Whatshan")]);
+        var summarizer = new FakeSummarizer(["summary 1"]);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([provider]),
+            summarizer,
+            emailSender,
+            deliveryConfigurationStore,
+            recipientConfigurationStore,
+            stateStore,
+            clock,
+            new RecordingLog());
+
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Valhalla", CancellationToken.None);
+
+        Assert.Equal(["Valhalla: summary 1"], emailSender.SentBodies);
+    }
+
+    [Fact]
+    public async Task Update_reduces_inreach_summary_budget_by_requested_region_prefix()
+    {
+        var paths = new AppPathsForTests();
+        var stateStore = new DeliveryStateStore(paths);
+        var deliveryConfigurationStore = new DeliveryConfigurationStore(paths);
+        var recipientConfigurationStore = await ConfigureRecipientAsync(paths);
+        var provider = new SequentialForecastProvider([BuildForecast()]);
+        var summarizer = new FakeSummarizer(["summary 1"]);
+        var emailSender = new FakeEmailSender();
+        var clock = new FakeClock(new DateTimeOffset(2026, 3, 13, 18, 0, 0, TimeSpan.Zero));
+        var service = new ForecastUpdateService(
+            new ProviderRegistry([provider]),
+            summarizer,
+            emailSender,
+            deliveryConfigurationStore,
+            recipientConfigurationStore,
+            stateStore,
+            clock,
+            new RecordingLog());
+
+        await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Valhalla", CancellationToken.None);
+
+        Assert.Single(summarizer.OptionsHistory);
+        Assert.Equal(470, summarizer.OptionsHistory[0].SummaryCharacterBudget);
+    }
+
+    private static AvalancheForecast BuildForecast(
+        string weatherSummary = "weather summary",
+        string regionDisplayName = "Glacier") =>
         new(
-            new ForecastRegion("avalanche-canada", "Glacier", "report-1", "area-1", "https://example.com"),
+            new ForecastRegion("avalanche-canada", regionDisplayName, "report-1", "area-1", "https://example.com"),
             "https://example.com",
-            "Glacier",
+            regionDisplayName,
             "Avalanche Canada",
             new DateTimeOffset(2026, 3, 13, 12, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 3, 13, 23, 0, 0, TimeSpan.Zero),

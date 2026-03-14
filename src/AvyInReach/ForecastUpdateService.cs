@@ -31,9 +31,14 @@ internal sealed class ForecastUpdateService(
         CancellationToken cancellationToken)
     {
         var forecast = await GetForecastOrThrowAsync(providerName, regionName, cancellationToken);
-        var options = await GetSummaryGenerationOptionsAsync(recipientAddress, currentSummary: null, cancellationToken);
+        var options = await GetSummaryGenerationOptionsAsync(
+            recipientAddress,
+            regionName,
+            currentSummary: null,
+            cancellationToken);
         log.Info("Generating Copilot summary...");
-        return await summarizer.GenerateSummaryAsync(forecast, options, cancellationToken);
+        var summary = await summarizer.GenerateSummaryAsync(forecast, options, cancellationToken);
+        return BuildDeliveryBody(summary, options.Transport, regionName);
     }
 
     public async Task ProcessAsync(
@@ -100,7 +105,11 @@ internal sealed class ForecastUpdateService(
                 return;
             }
 
-            var options = await GetSummaryGenerationOptionsAsync(inReachAddress, state.LastSummary, cancellationToken);
+            var options = await GetSummaryGenerationOptionsAsync(
+                inReachAddress,
+                regionName,
+                state.LastSummary,
+                cancellationToken);
             log.Info($"Generating Copilot summary for '{inReachAddress}'...");
             var summary = await summarizer.GenerateSummaryAsync(forecast, options, cancellationToken);
             var summaryFingerprint = ComputeTextFingerprint(summary);
@@ -116,13 +125,14 @@ internal sealed class ForecastUpdateService(
             }
 
             var subject = $"AvyInReach {forecast.Region.DisplayName}";
+            var deliveryBody = BuildDeliveryBody(summary, options.Transport, regionName);
             if (mode == DeliveryMode.Send)
             {
                 log.Info($"Sending summary to '{inReachAddress}' with subject '{subject}'.");
                 await emailSender.SendAsync(
                     inReachAddress,
                     subject,
-                    summary,
+                    deliveryBody,
                     cancellationToken);
             }
             else
@@ -131,7 +141,7 @@ internal sealed class ForecastUpdateService(
                 var sent = await TrySendReportAsync(
                     inReachAddress,
                     subject,
-                    summary,
+                    deliveryBody,
                     cancellationToken);
                 if (!sent)
                 {
@@ -163,16 +173,42 @@ internal sealed class ForecastUpdateService(
 
     private async Task<SummaryGenerationOptions> GetSummaryGenerationOptionsAsync(
         string recipientAddress,
+        string requestedRegion,
         string? currentSummary,
         CancellationToken cancellationToken)
     {
         var settings = await recipientConfigurationStore.GetRequiredAsync(recipientAddress, cancellationToken);
+        var budget = GetEffectiveSummaryBudget(settings, requestedRegion);
         return new SummaryGenerationOptions(
             settings.RecipientAddress,
             settings.Transport,
-            settings.SummaryCharacterBudget,
+            budget,
             currentSummary);
     }
+
+    private static int GetEffectiveSummaryBudget(RecipientSettings settings, string requestedRegion)
+    {
+        if (settings.Transport != RecipientTransport.InReach)
+        {
+            return settings.SummaryCharacterBudget;
+        }
+
+        var adjustedBudget = settings.SummaryCharacterBudget - GetRequestedRegionPrefix(requestedRegion).Length;
+        if (adjustedBudget < 1)
+        {
+            throw new InvalidOperationException(
+                $"Recipient summary budget of {settings.SummaryCharacterBudget} is too small to include requested region '{requestedRegion}' in the Garmin delivery.");
+        }
+
+        return adjustedBudget;
+    }
+
+    private static string BuildDeliveryBody(string summary, RecipientTransport transport, string requestedRegion) =>
+        transport == RecipientTransport.InReach
+            ? $"{GetRequestedRegionPrefix(requestedRegion)}{summary}"
+            : summary;
+
+    private static string GetRequestedRegionPrefix(string requestedRegion) => $"{requestedRegion.Trim()}: ";
 
     private async Task HandleMissingForecastAsync(
         DeliveryStateRecord state,
