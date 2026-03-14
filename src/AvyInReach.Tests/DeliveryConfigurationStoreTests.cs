@@ -3,13 +3,13 @@ namespace AvyInReach.Tests;
 public sealed class DeliveryConfigurationStoreTests
 {
     [Fact]
-    public async Task GetAsync_defaults_report_limit_to_four()
+    public async Task GetAsync_defaults_report_limit_to_one()
     {
         var store = new DeliveryConfigurationStore(new AppPathsForTests());
 
         var configuration = await store.GetAsync(CancellationToken.None);
 
-        Assert.Equal(4, configuration.MaxReportsPer24Hours);
+        Assert.Equal(1, configuration.MaxReportsPerWindow);
     }
 
     [Fact]
@@ -22,7 +22,7 @@ public sealed class DeliveryConfigurationStoreTests
 
         var configuration = await store.GetAsync(CancellationToken.None);
 
-        Assert.Equal(6, configuration.MaxReportsPer24Hours);
+        Assert.Equal(6, configuration.MaxReportsPerWindow);
         Assert.True(File.Exists(paths.DeliveryConfigurationPath));
     }
 }

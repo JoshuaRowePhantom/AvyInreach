@@ -21,7 +21,7 @@ internal sealed class ForecastUpdateService(
     IAppLog log)
 {
     private static readonly TimeSpan RetryNoticeDelay = TimeSpan.FromHours(1);
-    private static readonly TimeSpan ReportWindow = TimeSpan.FromHours(24);
+    private static readonly TimeSpan ReportWindow = TimeSpan.FromHours(6);
     private static readonly JsonSerializerOptions FingerprintSerializerOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<string> GenerateSummaryAsync(
@@ -285,10 +285,10 @@ internal sealed class ForecastUpdateService(
             .OrderBy(sentAt => sentAt)
             .ToList();
 
-        if (recipientState.SentReportsUtc.Count >= configuration.MaxReportsPer24Hours)
+        if (recipientState.SentReportsUtc.Count >= configuration.MaxReportsPerWindow)
         {
             await stateStore.UpsertRecipientAsync(recipientState, cancellationToken);
-            log.Warn($"Update decision: 24-hour report limit reached for '{inReachAddress}'; not sending.");
+            log.Warn($"Update decision: 6-hour report limit reached for '{inReachAddress}'; not sending.");
             return false;
         }
 

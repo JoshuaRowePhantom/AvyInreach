@@ -376,7 +376,7 @@ internal static class CommandText
           AvyInReach.exe unschedule <id>
 
         Examples:
-          AvyInReach.exe delivery reports 4
+          AvyInReach.exe delivery reports 1
           AvyInReach.exe copilot model
           AvyInReach.exe copilot model gpt-5-mini
           AvyInReach.exe recipient configure somebody@example.com transport email
@@ -396,7 +396,7 @@ internal static class CommandText
         Notes:
           - Supported providers: avalanche-canada, nwac
           - Copilot prompt execution defaults to model 'gpt-5-mini' unless overridden with 'copilot model <model-id>'
-          - update enforces a rolling 24-hour per-recipient report cap (default 4)
+          - update enforces a rolling 6-hour per-recipient report cap (default 1)
           - recipients must be configured before preview/send/update so summary sizing comes from recipient settings
           - inreach.garmin.com recipients require a configured Garmin reply link
           - Garmin replies are split into up to the configured number of 160-char messages (default 3)

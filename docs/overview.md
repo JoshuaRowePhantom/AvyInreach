@@ -9,7 +9,7 @@ Supported providers are `avalanche-canada` and `nwac`.
 ## Setup order
 
 1. Configure SMTP for normal outbound mail.
-2. Configure the `update` delivery cap if you want something other than the default of `4`.
+2. Configure the `update` delivery cap if you want something other than the default of `1`.
 3. If you send to `@inreach.garmin.com`, configure a Garmin reply link for that recipient.
 4. If you want automation, install a schedule.
 
@@ -67,7 +67,7 @@ If the generated-summary fingerprint changed, it sends. If the generated-summary
 
 `preview` uses the same fetch and Copilot summarization path as sending, but prints the generated line to stdout instead of sending mail. It uses the configured recipient settings for sizing.
 
-`update` also enforces a per-recipient rolling 24-hour report cap. The default is `4`, and one Garmin multipart delivery still counts as one report. Manual `send` bypasses that cap.
+`update` also enforces a per-recipient rolling 6-hour report cap. The default is `1`, and one Garmin multipart delivery still counts as one report. Manual `send` bypasses that cap.
 
 ## Garmin delivery
 
@@ -102,7 +102,7 @@ State is stored in `%LOCALAPPDATA%\AvyInReach\`.
 Files:
 
 - `smtp.json` stores SMTP server and sender configuration
-- `delivery.json` stores the rolling 24-hour report cap
+- `delivery.json` stores the rolling 6-hour report cap
 - `copilot.json` stores the configured Copilot model id
 - `recipients.json` stores recipient transport and summary budget configuration
 - `garmin.json` stores Garmin reply links by recipient address

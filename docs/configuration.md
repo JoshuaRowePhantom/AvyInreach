@@ -52,15 +52,15 @@ Example `smtp.json`:
 
 ## Delivery cap
 
-AvyInReach enforces a per-recipient rolling 24-hour report limit for `update`.
+AvyInReach enforces a per-recipient rolling 6-hour report limit for `update`.
 
 Configure it with:
 
 ```powershell
-.\AvyInReach.exe delivery reports 4
+.\AvyInReach.exe delivery reports 1
 ```
 
-If you do not configure it, the default is `4`.
+If you do not configure it, the default is `1`.
 
 One outbound `update` report counts as one send even when Garmin splits that report into multiple 160-character reply parts.
 
@@ -143,7 +143,7 @@ AvyInReach stores its local files in `%LOCALAPPDATA%\AvyInReach\`.
 Files:
 
 - `smtp.json` stores SMTP server and sender configuration
-- `delivery.json` stores the rolling 24-hour report cap, defaulting to 4
+- `delivery.json` stores the rolling 6-hour report cap, defaulting to 1
 - `copilot.json` stores the configured Copilot model id, defaulting to `gpt-5-mini`
 - `recipients.json` stores recipient transport and summary budget settings
 - `garmin.json` stores Garmin reply links by InReach recipient address

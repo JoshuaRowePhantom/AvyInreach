@@ -21,7 +21,7 @@ The project exists to:
 - Garmin multipart message splitting with configurable per-recipient part limits
 - recipient-configured summary budgets for `preview`, `send`, and `update`
 - `update` deduplication using separate input and output fingerprints
-- configurable rolling 24-hour report cap for `update`
+- configurable rolling 6-hour report cap for `update`
 - Windows Task Scheduler integration for recurring updates
 - local JSON configuration in `%LOCALAPPDATA%\AvyInReach\`
 
@@ -49,6 +49,7 @@ The project exists to:
 - `send` always sends immediately
 - `preview`, `send`, and `update` size summaries from recipient configuration
 - summaries prioritize decision-driving notices and always include sun/cloud, wind, and low/high temperature in `WX`
+- `update` is capped to 1 report per recipient every 6 hours by default
 - `update` sends only when forecast inputs and generated output require it
 - scheduled tasks prompt for Task Scheduler credentials at install time
 

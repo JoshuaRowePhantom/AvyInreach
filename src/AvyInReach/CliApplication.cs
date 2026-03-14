@@ -233,7 +233,7 @@ internal sealed class CliApplication
     {
         await configurationStore.ConfigureAsync(command.MaxReportsPer24Hours, cancellationToken);
         _log.Info("Delivery configuration saved.");
-        _log.Info($"Max reports per 24 hours: {command.MaxReportsPer24Hours}");
+        _log.Info($"Max reports per 6 hours: {command.MaxReportsPer24Hours}");
     }
 
     private static string ReadPassword(string prompt)

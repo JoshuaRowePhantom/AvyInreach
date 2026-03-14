@@ -20,11 +20,11 @@ internal sealed class DeliveryConfigurationStore(AppPaths paths)
         }
     }
 
-    public async Task ConfigureAsync(int maxReportsPer24Hours, CancellationToken cancellationToken)
+    public async Task ConfigureAsync(int maxReportsPerWindow, CancellationToken cancellationToken)
     {
-        if (maxReportsPer24Hours < 1)
+        if (maxReportsPerWindow < 1)
         {
-            throw new InvalidOperationException("Daily report limit must be at least 1.");
+            throw new InvalidOperationException("Report limit must be at least 1.");
         }
 
         await _lock.WaitAsync(cancellationToken);
@@ -37,7 +37,7 @@ internal sealed class DeliveryConfigurationStore(AppPaths paths)
 
             var updated = existing with
             {
-                MaxReportsPer24Hours = maxReportsPer24Hours,
+                MaxReportsPerWindow = maxReportsPerWindow,
             };
 
             await JsonFileStore.WriteAsync(paths.DeliveryConfigurationPath, updated, cancellationToken);
@@ -51,5 +51,5 @@ internal sealed class DeliveryConfigurationStore(AppPaths paths)
 
 internal sealed record DeliveryConfiguration
 {
-    public int MaxReportsPer24Hours { get; init; } = 4;
+    public int MaxReportsPerWindow { get; init; } = 1;
 }

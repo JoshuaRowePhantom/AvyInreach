@@ -22,6 +22,7 @@ public sealed class ForecastUpdateServiceTests
             stateStore,
             clock,
             new ConsoleLog());
+        await deliveryConfigurationStore.ConfigureAsync(2, CancellationToken.None);
 
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
@@ -88,6 +89,7 @@ public sealed class ForecastUpdateServiceTests
             stateStore,
             clock,
             new ConsoleLog());
+        await deliveryConfigurationStore.ConfigureAsync(2, CancellationToken.None);
 
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
@@ -155,6 +157,7 @@ public sealed class ForecastUpdateServiceTests
             stateStore,
             clock,
             new ConsoleLog());
+        await deliveryConfigurationStore.ConfigureAsync(2, CancellationToken.None);
 
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
         await service.ProcessAsync(DeliveryMode.Update, "user@inreach.garmin.com", "avalanche-canada", "Glacier", CancellationToken.None);
@@ -226,7 +229,7 @@ public sealed class ForecastUpdateServiceTests
     }
 
     [Fact]
-    public async Task Update_stops_sending_after_daily_report_limit_is_reached()
+    public async Task Update_stops_sending_after_six_hour_report_limit_is_reached()
     {
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
@@ -268,7 +271,7 @@ public sealed class ForecastUpdateServiceTests
     }
 
     [Fact]
-    public async Task Update_allows_sending_again_after_24_hour_window_expires()
+    public async Task Update_allows_sending_again_after_six_hour_window_expires()
     {
         var paths = new AppPathsForTests();
         var stateStore = new DeliveryStateStore(paths);
